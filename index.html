@@ -6,6 +6,17 @@
   <title>SuaraTeks Studio Pro — Live Transkrip & Upload Audio</title>
   <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
   <style>
+    :root {
+      --background: #0f172a;
+      --foreground: #f8fafc;
+      --card: #1e293b;
+      --border: #334155;
+      --primary: #3b82f6;
+      --primary-foreground: #ffffff;
+      --muted-foreground: #94a3b8;
+      --success: #22c55e;
+      --error: #ef4444;
+    }
     * { box-sizing: border-box; }
     .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
     .custom-scroll::-webkit-scrollbar-track { background: transparent; }
@@ -38,7 +49,7 @@
     }
   </style>
 </head>
-<body class="bg-transparent text-[var(--foreground)] antialiased p-0 m-0">
+<body class="bg-[var(--background)] text-[var(--foreground)] antialiased p-2 sm:p-4 m-0 max-w-6xl mx-auto">
   <div class="py-2 space-y-2.5">
 
     <!-- BARIS 1: TOMBOL UTAMA LIVE TRANSKRIP & UPLOAD (LANGSUNG TERLIHAT DI ATAS) -->
