@@ -3,315 +3,342 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SuaraTeks Studio Pro — Live Transkrip & Upload Audio</title>
+  <title>Transkrip Live — Requirement Gathering (Maestra Style)</title>
   <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
   <style>
-    :root {
-      --background: #0f172a;
-      --foreground: #f8fafc;
-      --card: #1e293b;
-      --border: #334155;
-      --primary: #3b82f6;
-      --primary-foreground: #ffffff;
-      --muted-foreground: #94a3b8;
-      --success: #22c55e;
-      --error: #ef4444;
-    }
     * { box-sizing: border-box; }
-    .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: #ffffff;
+      color: #1e293b;
+      margin: 0;
+      padding: 0;
+    }
+    .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
     .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-    .custom-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 9999px; }
-    @keyframes pulse-ring {
-      0% { transform: scale(0.95); opacity: 0.9; }
-      70% { transform: scale(1.18); opacity: 0; }
-      100% { transform: scale(1.18); opacity: 0; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+
+    /* Garis pembicara ala Maestra */
+    .spk-bar {
+      width: 4px;
+      border-radius: 9999px;
+      flex-shrink: 0;
+      cursor: pointer;
+      transition: transform 0.15s ease, opacity 0.15s ease;
     }
-    .recording-active {
-      background: var(--error) !important;
-      color: #fff !important;
-      position: relative;
+    .spk-bar:hover {
+      transform: scaleX(1.6);
+      opacity: 0.85;
     }
-    .recording-active::before {
-      content: '';
-      position: absolute;
-      inset: -3px;
-      border-radius: 0.5rem;
-      border: 2px solid var(--error);
-      animation: pulse-ring 1.4s infinite;
-      pointer-events: none;
+    .spk-0 { background-color: #3b82f6; } /* Biru */
+    .spk-1 { background-color: #f59e0b; } /* Oranye */
+    .spk-2 { background-color: #10b981; } /* Hijau */
+    .spk-3 { background-color: #8b5cf6; } /* Ungu */
+
+    @keyframes pulse-rec {
+      0% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.45); }
+      70% { box-shadow: 0 0 0 14px rgba(225, 29, 72, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0); }
     }
-    @keyframes flash-new {
-      0% { border-color: var(--success); background: rgba(34, 197, 94, 0.12); }
-      100% { border-color: var(--border); background: var(--background); }
+    .rec-pulse {
+      animation: pulse-rec 1.6s infinite;
     }
-    .seg-new {
-      animation: flash-new 1.6s ease-out;
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .line-enter {
+      animation: fade-in 0.25s ease-out;
     }
   </style>
 </head>
-<body class="bg-[var(--background)] text-[var(--foreground)] antialiased p-2 sm:p-4 m-0 max-w-6xl mx-auto">
-  <div class="py-2 space-y-2.5">
+<body class="min-h-screen flex flex-col justify-between bg-white text-slate-800 antialiased">
 
-    <!-- BARIS 1: TOMBOL UTAMA LIVE TRANSKRIP & UPLOAD (LANGSUNG TERLIHAT DI ATAS) -->
-    <div class="p-2.5 rounded-xl bg-[var(--card)] border border-[var(--border)] flex flex-wrap items-center justify-between gap-2">
-      <div class="flex flex-wrap items-center gap-2">
-        <!-- Tombol Utama Rekam Live Mikrofon -->
-        <button id="btnStartLive" type="button" class="px-4 py-2 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] font-semibold text-xs flex items-center gap-2 shadow-sm transition hover:opacity-95 cursor-pointer">
-          <span id="recDot" class="w-2.5 h-2.5 rounded-full bg-current"></span>
-          <span id="btnStartLiveLabel">🎙️ MULAI LIVE TRANSKRIP</span>
-          <span id="liveTimer" class="font-mono text-xs px-1.5 py-0.5 rounded bg-black/20 tabular-nums">00:00</span>
+  <!-- TOP STATUS BAR (Kecil & Jujur: Info Mesin AI + Penguat Suara Kecil) -->
+  <header class="w-full max-w-4xl mx-auto px-4 sm:px-8 pt-4 pb-2 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 text-xs text-slate-500">
+    <div class="flex items-center gap-2">
+      <span id="statusDot" class="w-2.5 h-2.5 rounded-full bg-slate-300"></span>
+      <span id="statusText" class="font-medium text-slate-700">Siap Merekam</span>
+      <span id="timerBadge" class="font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600 tabular-nums">00:00</span>
+      <span id="engineBadge" class="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium border border-blue-200 cursor-pointer" title="Klik untuk mengatur API Key Gemini / Whisper">
+        Mode: Web Speech (Klik ⚙️ untuk AI Cloud)
+      </span>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <!-- Indikator Pre-Amp Suara Kecil -->
+      <div class="flex items-center gap-1.5" title="Penguat sinyal mikrofon sebelum dikirim ke AI (membantu suara kecil/jauh)">
+        <span>🔊 Boost Mic:</span>
+        <strong id="gainLabel" class="text-slate-700 font-mono">3.0x</strong>
+        <span id="dbMeter" class="font-mono text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 w-14 text-center">-∞ dB</span>
+      </div>
+
+      <!-- Tombol Bersihkan & Ekspor -->
+      <button id="btnExportMenu" type="button" class="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition cursor-pointer">
+        ⬇ Ekspor / Salin
+      </button>
+      <button id="btnClearAll" type="button" class="px-2 py-1 rounded-md hover:bg-red-50 text-slate-400 hover:text-red-600 transition cursor-pointer" title="Bersihkan layar transkrip">
+        Hapus
+      </button>
+    </div>
+  </header>
+
+  <!-- AREA UTAMA TRANSKRIP (GAYA BERSIH MAESTRA) -->
+  <main class="flex-1 w-full max-w-4xl mx-auto px-4 sm:px-8 py-6 overflow-y-auto custom-scroll" style="max-height: calc(100vh - 150px);">
+    <div id="transcriptContainer" class="space-y-3.5 text-base sm:text-[19px] leading-relaxed text-slate-700">
+      <!-- Baris transkrip dirender di sini -->
+    </div>
+
+    <!-- Baris Interim (Kalimat yang sedang didengar / sedang diproses AI) -->
+    <div id="liveInterimRow" class="hidden mt-4 flex items-stretch gap-3.5">
+      <div id="interimBar" class="spk-bar spk-0"></div>
+      <div class="flex-1 py-0.5">
+        <span id="interimText" class="text-slate-400 italic text-base sm:text-[19px]">Mendengarkan...</span>
+        <span id="aiProcessingBadge" class="hidden ml-2 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 animate-pulse">
+          ✨ Memproses Audio Diperkuat di AI...
+        </span>
+      </div>
+    </div>
+  </main>
+
+  <!-- PANEL POPUP: PENGATURAN AI CLOUD (GEMINI / GROQ WHISPER) & GLOSARIUM -->
+  <div id="settingsModal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg p-5 space-y-4 text-xs sm:text-sm">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div>
+          <h3 class="font-bold text-slate-800 text-base">⚙️ Pengaturan Mesin AI &amp; Penguat Suara Kecil</h3>
+          <p class="text-xs text-slate-500 mt-0.5">Agar akurasi setara Maestra untuk suara pelan &amp; istilah khusus (TKBM, saldo awal, dll).</p>
+        </div>
+        <button id="btnCloseModal" type="button" class="text-slate-400 hover:text-slate-700 text-lg font-bold px-2 cursor-pointer">✕</button>
+      </div>
+
+      <!-- Pilihan API Key (Gemini atau Groq Whisper Large-v3) -->
+      <div class="space-y-2">
+        <label class="block font-semibold text-slate-700">
+          1. API Key Cloud Speech-to-Text (Disimpan di browser Anda):
+        </label>
+        <input id="apiKeyInput" type="password" placeholder="Tempel AIza... (Gemini API) atau gsk_... (Groq Whisper Large-v3)" class="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-xs focus:outline-none focus:border-blue-500" />
+        <p class="text-[11px] text-slate-500 leading-normal">
+          • <strong>Gemini API (<code>AIza...</code>):</strong> Otomatis memakai <code>gemini-2.5-flash</code> dengan audio yang sudah diperkuat + deteksi pembicara (Biru/Oranye/Hijau) + multibahasa (Indonesia, Jawa, Inggris, Jepang).<br/>
+          • <strong>Groq API (<code>gsk_...</code>):</strong> Otomatis memakai <code>whisper-large-v3-turbo</code> yang sangat tajam menangkap kata pelan.<br/>
+          • <em>Jika dikosongkan:</em> Memakai <code>SpeechRecognition</code> bawaan browser.
+        </p>
+      </div>
+
+      <!-- Slider Penguat Suara Kecil (Pre-Amp + Compressor) -->
+      <div class="space-y-1.5 bg-slate-50 p-3 rounded-xl border border-slate-200">
+        <div class="flex items-center justify-between">
+          <label for="gainSlider" class="font-semibold text-slate-700">2. Penguat Suara Kecil (Pre-Amp + Compressor):</label>
+          <span id="gainSliderVal" class="font-mono font-bold text-blue-600">3.0x (+9.5 dB)</span>
+        </div>
+        <input id="gainSlider" type="range" min="1" max="6" step="0.5" value="3" class="w-full accent-blue-600 cursor-pointer" />
+        <div class="flex justify-between text-[11px] text-slate-400">
+          <span>1.0x (Normal)</span>
+          <span>3.0x (Rapat Meja)</span>
+          <span>6.0x (Suara Sangat Pelan/Jauh)</span>
+        </div>
+      </div>
+
+      <!-- Kamus / Glosarium Requirement Gathering -->
+      <div class="space-y-1.5">
+        <label for="glossaryInput" class="block font-semibold text-slate-700">
+          3. Glosarium / Istilah Khusus Rapat (Membantu AI mengenali singkatan):
+        </label>
+        <textarea id="glossaryInput" rows="2" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:outline-none focus:border-blue-500">TKBM, saldo awal, kuantum, biaya operasional, requirement gathering, COA, jurnal, neraca, ERP, PR, PO</textarea>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+        <button id="btnSaveModal" type="button" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm transition cursor-pointer">
+          Simpan &amp; Terapkan
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL POPUP: EKSPOR & UPLOAD AUDIO -->
+  <div id="exportModal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md p-5 space-y-4 text-xs sm:text-sm">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="font-bold text-slate-800 text-base">📋 Salin &amp; Ekspor Transkrip</h3>
+        <button id="btnCloseExport" type="button" class="text-slate-400 hover:text-slate-700 text-lg font-bold px-2 cursor-pointer">✕</button>
+      </div>
+      <div class="grid grid-cols-2 gap-2.5">
+        <button id="btnCopyText" type="button" class="p-3 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 text-left transition cursor-pointer">
+          <div class="font-semibold text-slate-800">📋 Salin ke Clipboard</div>
+          <div class="text-[11px] text-slate-500">Teks bersih siap tempel ke WA/Docs</div>
+        </button>
+        <button id="btnExportMd" type="button" class="p-3 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 text-left transition cursor-pointer">
+          <div class="font-semibold text-slate-800">⬇ Notulensi (.MD)</div>
+          <div class="text-[11px] text-slate-500">Format Markdown per pembicara</div>
+        </button>
+        <button id="btnExportTxt" type="button" class="p-3 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 text-left transition cursor-pointer">
+          <div class="font-semibold text-slate-800">⬇ File Teks (.TXT)</div>
+          <div class="text-[11px] text-slate-500">Transkrip polos + timestamp</div>
+        </button>
+        <button id="btnExportSrt" type="button" class="p-3 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 text-left transition cursor-pointer">
+          <div class="font-semibold text-slate-800">⬇ Subtitle (.SRT)</div>
+          <div class="text-[11px] text-slate-500">Format kode waktu video/audio</div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM CONTROL BAR PERSIS GAYA MAESTRA -->
+  <footer class="sticky bottom-0 bg-white/95 backdrop-blur-xs border-t border-slate-100 py-3 px-4 sm:px-8">
+    <div class="max-w-4xl mx-auto flex items-center justify-between gap-2">
+
+      <!-- Kiri: Brand & Petunjuk Pembicara -->
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 via-teal-400 to-amber-400 flex items-center justify-center text-white font-bold text-xs shadow-xs">
+          M
+        </div>
+        <div>
+          <div class="font-bold text-slate-800 text-sm leading-tight">Maestra Studio</div>
+          <div class="text-[11px] text-slate-400 hidden sm:block">Klik garis warna untuk ganti pembicara • Klik teks untuk edit</div>
+        </div>
+      </div>
+
+      <!-- Tengah: Tombol Pause, Record/Stop (Merah Besar), dan Mic Boost -->
+      <div class="flex items-center gap-3 sm:gap-4">
+        <!-- Tombol Pause -->
+        <button id="btnPause" type="button" title="Jeda rekaman" class="w-11 h-11 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 flex items-center justify-center transition cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10 9v6m4-6v6" />
+          </svg>
         </button>
 
-        <!-- Tombol Tes Live Instan (Simulasi Suara Real-time) -->
-        <button id="btnDemoLive" type="button" class="px-3 py-2 rounded-lg bg-[var(--background)] border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)] font-medium text-xs flex items-center gap-1.5 transition cursor-pointer">
-          <span>⚡ Tes Live Sekarang (Simulasi)</span>
+        <!-- Tombol Utama Record / Stop (Lingkaran Merah Besar ala Maestra) -->
+        <button id="btnRecordMain" type="button" title="Mulai / Hentikan Live Transkrip" class="w-16 h-16 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center shadow-md transition cursor-pointer">
+          <!-- Ikon Kotak Stop saat merekam, atau Mic saat berhenti -->
+          <div id="recordIconBox" class="w-5 h-5 rounded-xs bg-white"></div>
         </button>
 
-        <!-- Tombol Langsung Upload File -->
-        <label for="fileInput" class="px-3 py-2 rounded-lg bg-[var(--background)] border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)] font-medium text-xs flex items-center gap-1.5 transition cursor-pointer">
-          <span>📁 Upload Audio/Video</span>
-          <input id="fileInput" type="file" accept="audio/*,video/*,.mp3,.wav,.m4a,.mp4,.webm,.ogg" class="hidden" />
+        <!-- Tombol Upload Rekaman Audio (untuk file meeting m4a/mp3/wav) -->
+        <label for="audioUploadInput" title="Upload file rekaman rapat (.m4a, .mp3, .wav)" class="w-11 h-11 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 flex items-center justify-center transition cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+          </svg>
+          <input id="audioUploadInput" type="file" accept="audio/*,video/*,.m4a,.mp3,.wav,.ogg,.webm,.aac" class="hidden" />
         </label>
       </div>
 
-      <!-- Pengaturan Bahasa, Kamus & AI Engine -->
-      <div class="flex items-center gap-1.5 text-xs">
-        <select id="langSelect" class="bg-[var(--background)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-[var(--foreground)] font-medium focus:outline-none">
-          <option value="id-ID">🇮🇩 Indonesia</option>
-          <option value="en-US">🇺🇸 English</option>
-          <option value="jv-ID">Java (jv-ID)</option>
-          <option value="su-ID">Sunda (su-ID)</option>
-        </select>
-
-        <button id="btnToggleSettings" type="button" class="px-2.5 py-1.5 rounded-lg bg-[var(--background)] border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)] flex items-center gap-1">
-          <span id="apiDot" class="w-2 h-2 rounded-full bg-[var(--success)]"></span>
-          <span>⚙️ Engine &amp; Kamus</span>
+      <!-- Kanan: Tombol Settings, Speaker Color, & Deteksi Bahasa -->
+      <div class="flex items-center gap-2">
+        <button id="btnOpenSettings" type="button" title="Pengaturan API Key & Penguat Suara Kecil" class="w-10 h-10 rounded-full border border-slate-200 hover:bg-slate-100 text-slate-600 flex items-center justify-center transition cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
         </button>
-      </div>
-    </div>
 
-    <!-- PANEL PENGATURAN KAMUS & WHISPER AI (BISA DIBUKA/TUTUP) -->
-    <div id="settingsDrawer" class="hidden p-3 rounded-xl bg-[var(--card)] border border-[var(--border)] space-y-2.5 text-xs">
-      <div class="flex items-center justify-between">
-        <span class="font-semibold text-[var(--foreground)]">⚡ Pengaturan Mesin Akurasi Maestra AI (Whisper Large-v3 &amp; Kamus Kata)</span>
-        <button id="btnCloseSettings" type="button" class="text-[var(--muted-foreground)] hover:text-[var(--foreground)]">Tutup ✕</button>
-      </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-        <div>
-          <label class="block text-[var(--muted-foreground)] mb-1">📚 Kamus Istilah Khusus (Otomatis dikoreksi saat Live):</label>
-          <input id="customVocabInput" type="text" value="Maestra AI, SuaraTeks, Whisper Large-v3, Deepgram, UI/UX, KPI, Q4, Indonesia" class="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-[var(--foreground)]" />
-        </div>
-        <div>
-          <label class="block text-[var(--muted-foreground)] mb-1">🔑 API Key Cloud Whisper Large-v3 (Groq Gratis `gsk_...` / OpenAI):</label>
-          <div class="flex gap-1.5">
-            <input id="apiKeyInput" type="password" placeholder="Opsional: tempel gsk_... untuk Whisper Large-v3" class="flex-1 bg-[var(--background)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-[var(--foreground)] font-mono" />
-            <button id="btnSaveSettings" type="button" class="px-3 py-1.5 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] font-medium">Simpan</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- BARIS 2: WORKSPACE UTAMA (KIRI: MONITOR LIVE CAPTION | KANAN: HASIL TRANSKRIP) -->
-    <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-
-      <!-- KOLOM KIRI (5 KOLOM): LAYAR MONITOR LIVE TRANSKRIP REAL-TIME -->
-      <div class="sm:col-span-5 bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 flex flex-col justify-between space-y-2.5">
-
-        <div class="space-y-2">
-          <!-- Status Live & Indikator VAD -->
-          <div class="flex items-center justify-between text-xs">
-            <div class="flex items-center gap-1.5">
-              <span id="livePulseIndicator" class="w-2 h-2 rounded-full bg-[var(--muted-foreground)]"></span>
-              <span id="liveStateLabel" class="font-semibold text-[var(--foreground)]">Monitor Live Transkrip</span>
-            </div>
-            <span id="vadStatusBadge" class="font-mono text-xs px-1.5 py-0.5 rounded bg-[var(--background)] border border-[var(--border)] text-[var(--muted-foreground)]">
-              Siap Bicara
-            </span>
-          </div>
-
-          <!-- LAYAR MONITOR KATA YANG SEDANG DIUCAPKAN (LIVE CAPTION BOX) -->
-          <div class="p-3 rounded-lg bg-[var(--background)] border-2 border-[var(--primary)] min-h-[96px] flex flex-col justify-between">
-            <div class="text-xs text-[var(--muted-foreground)] flex items-center justify-between">
-              <span>💬 Kalimat yang sedang didengar:</span>
-              <select id="speakerSelect" class="bg-[var(--card)] border border-[var(--border)] rounded px-1.5 py-0.5 text-xs text-[var(--foreground)]">
-                <option value="Pembicara 1">Pembicara 1</option>
-                <option value="Pembicara 2">Pembicara 2</option>
-                <option value="Moderator">Moderator</option>
-              </select>
-            </div>
-            <div id="liveCaptionMonitor" class="text-sm font-medium text-[var(--foreground)] leading-snug my-1.5">
-              Klik tombol <strong class="text-[var(--primary)]">"🎙️ MULAI LIVE TRANSKRIP"</strong> di kiri atas lalu bicara, atau klik <strong>"⚡ Tes Live Sekarang"</strong>.
-            </div>
-            <div class="flex items-center justify-between text-xs text-[var(--muted-foreground)] pt-1 border-t border-[var(--border)]">
-              <span id="correctionHint">✓ Auto-Punctuation &amp; Kamus Maestra Aktif</span>
-              <span id="dbLevelText" class="font-mono">-∞ dB</span>
-            </div>
-          </div>
-
-          <!-- Gelombang Suara Live (Waveform) -->
-          <div class="bg-[var(--background)] border border-[var(--border)] rounded-lg p-2">
-            <canvas id="liveWaveCanvas" width="320" height="42" class="w-full h-9 block"></canvas>
-          </div>
-
-          <!-- Pemutar Audio File Upload (Muncul saat upload file) -->
-          <div id="uploadedPlayerBox" class="hidden p-2 rounded-lg bg-[var(--background)] border border-[var(--border)] space-y-1.5">
-            <div class="flex items-center justify-between text-xs">
-              <span id="uploadFileName" class="font-medium truncate max-w-[160px]">audio.wav</span>
-              <button id="btnTranscribeUpload" type="button" class="px-2 py-0.5 rounded bg-[var(--primary)] text-[var(--primary-foreground)] font-medium">
-                Proses Transkrip
-              </button>
-            </div>
-            <audio id="audioPlayer" controls class="w-full h-7"></audio>
-          </div>
-        </div>
-
-        <!-- Input Ketik / Koreksi Cepat Saat Live -->
-        <div class="pt-2 border-t border-[var(--border)] flex gap-1.5">
-          <input id="quickInput" type="text" placeholder="Ketik/dikte kalimat di sini lalu tekan Enter..." class="flex-1 text-xs bg-[var(--background)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-[var(--foreground)] focus:outline-none focus:border-[var(--primary)]" />
-          <button id="btnQuickSend" type="button" class="px-2.5 py-1.5 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-medium">
-            + Masuk
-          </button>
-        </div>
-
-      </div>
-
-      <!-- KOLOM KANAN (7 KOLOM): DAFTAR HASIL TRANSKRIP REAL-TIME & EKSPOR -->
-      <div class="sm:col-span-7 bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 flex flex-col justify-between space-y-2">
-
-        <!-- Header Kolom Hasil -->
-        <div class="flex flex-wrap items-center justify-between gap-1.5 pb-2 border-b border-[var(--border)]">
-          <div class="flex items-center gap-1.5">
-            <span class="text-xs font-semibold text-[var(--foreground)]">📝 Hasil Transkrip Live (<span id="segCount">3</span>)</span>
-            <span id="avgAccBadge" class="text-xs font-mono px-1.5 py-0.5 rounded bg-[var(--background)] border border-[var(--border)] text-[var(--success)]">
-              99% Akurat
-            </span>
-          </div>
-          <div class="flex items-center gap-1">
-            <button id="btnProofread" type="button" class="text-xs px-2 py-1 rounded bg-[var(--background)] border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)]" title="Rapikan semua ejaan & tanda baca">
-              ✨ Rapikan AI
-            </button>
-            <button id="btnTranslateToggle" type="button" class="text-xs px-2 py-1 rounded bg-[var(--background)] border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)]">
-              🌐 Translate (EN)
-            </button>
-            <button id="btnClear" type="button" class="text-xs px-2 py-1 rounded bg-[var(--background)] border border-[var(--border)] hover:border-[var(--error)] text-[var(--muted-foreground)]">
-              Hapus
-            </button>
-          </div>
-        </div>
-
-        <!-- Daftar Segmen Kalimat Hasil Transkrip -->
-        <div id="transcriptList" class="space-y-2 overflow-y-auto custom-scroll max-h-[215px] min-h-[185px] pr-1"></div>
-
-        <!-- Baris Ekspor Dokumen -->
-        <div class="pt-2 border-t border-[var(--border)] flex flex-wrap items-center justify-between gap-2 text-xs">
-          <span id="statusFooter" class="text-[var(--muted-foreground)] truncate">Klik teks untuk mengedit langsung</span>
-          <div class="flex items-center gap-1.5">
-            <button id="btnCopy" type="button" class="px-2 py-1 rounded bg-[var(--background)] border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)]">
-              📋 Salin
-            </button>
-            <button id="btnDownloadTxt" type="button" class="px-2 py-1 rounded bg-[var(--background)] border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)]">
-              ⬇ .TXT
-            </button>
-            <button id="btnDownloadSrt" type="button" class="px-2 py-1 rounded bg-[var(--background)] border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)]">
-              ⬇ .SRT
-            </button>
-            <button id="btnDownloadMd" type="button" class="px-2.5 py-1 rounded bg-[var(--primary)] text-[var(--primary-foreground)] font-medium">
-              ⬇ Notulensi .MD
-            </button>
-          </div>
-        </div>
-
+        <!-- Pilihan Deteksi Bahasa -->
+        <select id="langSelect" class="px-3.5 py-2 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-medium text-slate-700 focus:outline-none cursor-pointer">
+          <option value="auto">Deteksi Bahasa (ID/JV/EN)</option>
+          <option value="id-ID">Bahasa Indonesia</option>
+          <option value="jv-ID">Basa Jawa</option>
+          <option value="en-US">English</option>
+          <option value="ja-JP">日本語 (Jepang)</option>
+        </select>
       </div>
 
     </div>
-
-  </div>
+  </footer>
 
   <script>
-    // --- DATA & STATE ---
+    // =========================================================================
+    // 1. DATA AWAL (CONTOH HASIL TRANSKRIP MAESTRA DARI SCREENSHOT RAPAT)
+    // =========================================================================
     let segments = [
-      {
-        id: 1,
-        timeSec: 0,
-        endSec: 5,
-        speaker: "Moderator",
-        confidence: 0.99,
-        text: "Selamat pagi, silakan klik tombol Mulai Live Transkrip di pojok kiri atas untuk merekam suara Anda secara langsung.",
-        en: "Good morning, please click the Start Live Transcript button at the top left to record your voice live."
-      }
+      { id: 1, spkIndex: 0, timeSec: 2, text: "Kontaktu-" },
+      { id: 2, spkIndex: 0, timeSec: 5, text: "Kalau runcing, masih." },
+      { id: 3, spkIndex: 1, timeSec: 9, text: "Yang diinputkan di sebagai saldo, sebagai data awalnya yang mana, Bu?" },
+      { id: 4, spkIndex: 2, timeSec: 14, text: "Biasanya sih dari saldo awal, Pak." },
+      { id: 5, spkIndex: 0, timeSec: 18, text: "Mending saldo awal aja." },
+      { id: 6, spkIndex: 2, timeSec: 21, text: "Iya, saldo awal." },
+      { id: 7, spkIndex: 2, timeSec: 25, text: "Biaya TKBM sama biaya operasional." },
+      { id: 8, spkIndex: 2, timeSec: 30, text: "Nanti biaya TKBM itu, nanti kuantumnya itu dari biaya TKBM dibagi sama harga TKBM." }
     ];
 
-    let customVocab = ["Maestra AI", "SuaraTeks", "Whisper Large-v3", "Deepgram", "UI/UX", "KPI", "Q4", "Indonesia"];
-    let apiKey = "";
-    let showEnglish = false;
+    const speakerNames = ["Pembicara 1 (Biru)", "Pembicara 2 (Oranye)", "Pembicara 3 (Hijau)", "Pembicara 4 (Ungu)"];
 
+    // Pengaturan tersimpan di localStorage agar tidak hilang saat refresh
+    let apiKey = localStorage.getItem("transkrip_api_key") || "";
+    let micGainValue = parseFloat(localStorage.getItem("transkrip_mic_gain") || "3.0");
+    let glossaryTerms = (localStorage.getItem("transkrip_glossary") || "TKBM, saldo awal, kuantum, biaya operasional, requirement gathering, COA, jurnal, neraca, ERP, PR, PO")
+      .split(",")
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    // State perekaman & audio
     let isRecording = false;
-    let recognition = null;
-    let liveStartTime = 0;
-    let liveElapsedSec = 0;
+    let isPaused = false;
+    let elapsedSec = 0;
     let timerInterval = null;
-    let demoInterval = null;
 
     let audioCtx = null;
-    let analyser = null;
     let micStream = null;
+    let gainNode = null;
+    let analyserNode = null;
+    let processedDestination = null;
     let mediaRecorder = null;
-    let animId = null;
-    let currentRmsDb = -100;
-    let currentUploadFile = null;
+    let recordedChunks = [];
+    let animFrameId = null;
 
-    // Phonetic Auto-Correction Map (Maestra-style accuracy enhancer)
-    const phoneticRules = [
-      { pattern: /\b(maistra|mestra|maestro ai|maestra e ay|maestra a i)\b/gi, replacement: "Maestra AI" },
-      { pattern: /\b(wisper|whisper large v tiga|whisper v3)\b/gi, replacement: "Whisper Large-v3" },
-      { pattern: /\b(dipgram|deep gram)\b/gi, replacement: "Deepgram" },
-      { pattern: /\b(yu ai yu eks|ui ux|yuai yueks)\b/gi, replacement: "UI/UX" },
-      { pattern: /\b(ki pi ai|k p i|kepiai)\b/gi, replacement: "KPI" },
-      { pattern: /\b(ki empat|kuartal empat|q empat)\b/gi, replacement: "Q4" },
-      { pattern: /\b(suara teks|suarateks)\b/gi, replacement: "SuaraTeks" },
-      { pattern: /\b(es er te|s r t)\b/gi, replacement: "SRT" }
-    ];
+    // Deteksi pembicara otomatis (berdasarkan jeda & karakter frekuensi suara)
+    let currentSpkIndex = 0;
+    let lastSpeechTimestamp = 0;
+    let lastPitchAvg = 0;
+    let currentChunkPitchSamples = [];
+    let isSpeakingNow = false;
+    let silenceStartMs = 0;
+    let chunkStartMs = 0;
 
-    // --- DOM ELEMENTS ---
-    const btnStartLive = document.getElementById("btnStartLive");
-    const btnStartLiveLabel = document.getElementById("btnStartLiveLabel");
-    const liveTimer = document.getElementById("liveTimer");
-    const btnDemoLive = document.getElementById("btnDemoLive");
-    const fileInput = document.getElementById("fileInput");
+    // Web Speech API (untuk live preview kata demi kata)
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+
+    // =========================================================================
+    // 2. ELEMEN DOM
+    // =========================================================================
+    const transcriptContainer = document.getElementById("transcriptContainer");
+    const liveInterimRow = document.getElementById("liveInterimRow");
+    const interimBar = document.getElementById("interimBar");
+    const interimText = document.getElementById("interimText");
+    const aiProcessingBadge = document.getElementById("aiProcessingBadge");
+
+    const statusDot = document.getElementById("statusDot");
+    const statusText = document.getElementById("statusText");
+    const timerBadge = document.getElementById("timerBadge");
+    const engineBadge = document.getElementById("engineBadge");
+    const gainLabel = document.getElementById("gainLabel");
+    const dbMeter = document.getElementById("dbMeter");
+
+    const btnRecordMain = document.getElementById("btnRecordMain");
+    const recordIconBox = document.getElementById("recordIconBox");
+    const btnPause = document.getElementById("btnPause");
+    const audioUploadInput = document.getElementById("audioUploadInput");
     const langSelect = document.getElementById("langSelect");
 
-    const btnToggleSettings = document.getElementById("btnToggleSettings");
-    const settingsDrawer = document.getElementById("settingsDrawer");
-    const btnCloseSettings = document.getElementById("btnCloseSettings");
-    const customVocabInput = document.getElementById("customVocabInput");
+    const settingsModal = document.getElementById("settingsModal");
+    const btnOpenSettings = document.getElementById("btnOpenSettings");
+    const btnCloseModal = document.getElementById("btnCloseModal");
+    const btnSaveModal = document.getElementById("btnSaveModal");
     const apiKeyInput = document.getElementById("apiKeyInput");
-    const btnSaveSettings = document.getElementById("btnSaveSettings");
+    const gainSlider = document.getElementById("gainSlider");
+    const gainSliderVal = document.getElementById("gainSliderVal");
+    const glossaryInput = document.getElementById("glossaryInput");
 
-    const livePulseIndicator = document.getElementById("livePulseIndicator");
-    const liveStateLabel = document.getElementById("liveStateLabel");
-    const vadStatusBadge = document.getElementById("vadStatusBadge");
-    const speakerSelect = document.getElementById("speakerSelect");
-    const liveCaptionMonitor = document.getElementById("liveCaptionMonitor");
-    const correctionHint = document.getElementById("correctionHint");
-    const dbLevelText = document.getElementById("dbLevelText");
-    const liveWaveCanvas = document.getElementById("liveWaveCanvas");
-    const liveCtx = liveWaveCanvas.getContext("2d");
+    const exportModal = document.getElementById("exportModal");
+    const btnExportMenu = document.getElementById("btnExportMenu");
+    const btnCloseExport = document.getElementById("btnCloseExport");
+    const btnClearAll = document.getElementById("btnClearAll");
 
-    const uploadedPlayerBox = document.getElementById("uploadedPlayerBox");
-    const uploadFileName = document.getElementById("uploadFileName");
-    const btnTranscribeUpload = document.getElementById("btnTranscribeUpload");
-    const audioPlayer = document.getElementById("audioPlayer");
-
-    const quickInput = document.getElementById("quickInput");
-    const btnQuickSend = document.getElementById("btnQuickSend");
-
-    const transcriptList = document.getElementById("transcriptList");
-    const segCount = document.getElementById("segCount");
-    const avgAccBadge = document.getElementById("avgAccBadge");
-    const btnProofread = document.getElementById("btnProofread");
-    const btnTranslateToggle = document.getElementById("btnTranslateToggle");
-    const btnClear = document.getElementById("btnClear");
-    const statusFooter = document.getElementById("statusFooter");
+    // =========================================================================
+    // 3. RENDER TAMPILAN TRANSKRIP (GAYA MAESTRA)
+    // =========================================================================
+    function escapeHtml(str) {
+      return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
 
     function formatTime(sec) {
       const s = Math.max(0, Math.floor(sec || 0));
@@ -327,234 +354,506 @@
       return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")},${String(ms).padStart(3, "0")}`;
     }
 
-    function escapeHtml(str) {
-      return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    }
-
-    // --- SMART FORMATTING & CUSTOM VOCABULARY ENGINE ---
-    function smartFormat(raw) {
-      let text = (raw || "").trim();
+    function applyGlossaryFormatting(rawText) {
+      let text = (rawText || "").trim();
       if (!text) return "";
 
-      // Hapus gumaman
-      text = text.replace(/\b(eee+|eh+|hmm+|umm+|anu)\b[,]?\s*/gi, "");
-
-      // Koreksi fonetik istilah khusus
-      phoneticRules.forEach(r => {
-        text = text.replace(r.pattern, r.replacement);
-      });
-
-      // Terapkan kapitalisasi kamus kata
-      customVocab.forEach(term => {
+      // Koreksi istilah glosarium (case-insensitive -> sesuai penulisan di glosarium)
+      glossaryTerms.forEach(term => {
         const clean = term.trim();
         if (!clean) return;
         const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         text = text.replace(new RegExp(`\\b${escaped}\\b`, "gi"), clean);
       });
 
-      // Koma sebelum konjungsi
-      text = text.replace(/\s+(tetapi|namun|sehingga|sedangkan|meskipun)\b/gi, ", $1");
+      // Koreksi fonetik umum rapat akuntansi/operasional
+      text = text
+        .replace(/\b(te ka be em|t k b m|tkbm)\b/gi, "TKBM")
+        .replace(/\b(ce o a|c o a)\b/gi, "COA")
+        .replace(/\b(e er pe|e r p)\b/gi, "ERP");
 
-      // Huruf kapital di awal kalimat
+      // Kapitalisasi awal kalimat
       text = text.replace(/(^\s*[a-z]|[.!?]\s+[a-z])/g, m => m.toUpperCase());
 
-      // Titik atau tanda tanya di akhir kalimat
-      if (!/[.!?]$/.test(text)) {
-        const isQ = /^(apakah|bagaimana|mengapa|kenapa|kapan|siapa|berapa|dimana|mana)\b/i.test(text);
-        text += isQ ? "?" : ".";
+      // Tambahkan titik/tanda tanya jika belum ada tanda baca akhir dan bukan kata terpotong ("-")
+      if (!/[.!?-]$/.test(text)) {
+        const isQuestion = /(\b(apa|apakah|bagaimana|gimana|kenapa|kapan|siapa|berapa|dimana|yang mana)\b|,\s*(bu|pak|mas|mbak)\s*$)/i.test(text);
+        text += isQuestion ? "?" : ".";
       }
-      return text.replace(/\s{2,}/g, " ").trim();
+
+      return text;
     }
 
-    function autoTranslateToEn(idText) {
-      return idText
-        .replace(/Selamat pagi/gi, "Good morning")
-        .replace(/rekan-rekan semua/gi, "everyone")
-        .replace(/hari ini kita evaluasi akurasi/gi, "today we evaluate the accuracy of")
-        .replace(/dan integrasi/gi, "and integration of")
-        .replace(/untuk target/gi, "for the target of")
-        .replace(/pengujian modul/gi, "module testing of")
-        .replace(/menunjukkan peningkatan signifikan/gi, "shows significant improvement")
-        .replace(/tetapi kita perlu mengoptimalkan/gi, "however we need to optimize")
-        .replace(/pada halaman editor/gi, "on the editor page")
-        .replace(/apakah fitur ekspor subtitle/gi, "has the subtitle export feature")
-        .replace(/dan terjemahan otomatis bahasa Inggris sudah mencapai target/gi, "and automatic English translation reached the target")
-        .replace(/minggu ini/gi, "this week");
-    }
-
-    // --- RENDER TRANSCRIPT LIST ---
-    function renderSegments(highlightLast = false) {
-      transcriptList.innerHTML = "";
-      segCount.textContent = segments.length;
+    function renderTranscript(scrollBottom = false) {
+      transcriptContainer.innerHTML = "";
 
       if (segments.length === 0) {
-        transcriptList.innerHTML = `
-          <div class="h-36 flex items-center justify-center text-center text-xs text-[var(--muted-foreground)]">
-            Belum ada transkrip. Klik "🎙️ MULAI LIVE TRANSKRIP" atau "⚡ Tes Live Sekarang" di atas.
+        transcriptContainer.innerHTML = `
+          <div class="py-16 text-center text-slate-400 text-sm">
+            Belum ada percakapan. Klik tombol merah di bawah untuk mulai merekam rapat, atau unggah file rekaman.
           </div>
         `;
-        avgAccBadge.textContent = "-";
         return;
       }
 
-      const avg = segments.reduce((a, b) => a + (b.confidence || 0.99), 0) / segments.length;
-      avgAccBadge.textContent = `${(avg * 100).toFixed(1)}% Akurat`;
-
       segments.forEach((seg, idx) => {
-        const div = document.createElement("div");
-        const isNewest = highlightLast && idx === segments.length - 1;
-        div.className = `p-2.5 rounded-lg bg-[var(--background)] border border-[var(--border)] space-y-1 ${isNewest ? "seg-new" : ""}`;
+        const row = document.createElement("div");
+        const isLast = idx === segments.length - 1 && scrollBottom;
+        row.className = `group flex items-stretch gap-3.5 py-0.5 ${isLast ? "line-enter" : ""}`;
 
-        const confPct = Math.round((seg.confidence || 0.99) * 100);
-        div.innerHTML = `
-          <div class="flex items-center justify-between text-xs">
-            <div class="flex items-center gap-1.5">
-              <span class="font-mono text-[var(--primary)] font-medium">[${formatTime(seg.timeSec)}]</span>
-              <span class="font-semibold text-[var(--foreground)]">${escapeHtml(seg.speaker)}</span>
-              <span class="font-mono text-[11px] px-1.5 py-0.2 rounded bg-[var(--card)] border border-[var(--border)] text-[var(--success)]">${confPct}%</span>
-            </div>
-            <button type="button" data-del="${seg.id}" class="del-btn text-[var(--muted-foreground)] hover:text-[var(--error)] px-1">✕</button>
-          </div>
-          <div contenteditable="true" data-edit="${seg.id}" class="edit-box text-xs text-[var(--foreground)] leading-relaxed focus:outline-none focus:bg-[var(--card)] rounded p-0.5">${escapeHtml(seg.text)}</div>
-          ${showEnglish ? `<div class="text-xs text-[var(--primary)] italic pt-1 border-t border-[var(--border)]">🌐 EN: ${escapeHtml(seg.en || autoTranslateToEn(seg.text))}</div>` : ""}
+        const spkClass = `spk-${(seg.spkIndex || 0) % 4}`;
+        row.innerHTML = `
+          <div data-spk-id="${seg.id}" title="Klik untuk ganti warna pembicara (${speakerNames[(seg.spkIndex || 0) % 4]})" class="spk-bar ${spkClass}"></div>
+          <div contenteditable="true" data-edit-id="${seg.id}" class="flex-1 outline-none focus:bg-slate-50 rounded px-1 -mx-1 transition">${escapeHtml(seg.text)}</div>
+          <button type="button" data-del-id="${seg.id}" title="Hapus baris" class="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500 text-xs px-1.5 transition cursor-pointer">✕</button>
         `;
-        transcriptList.appendChild(div);
+        transcriptContainer.appendChild(row);
       });
 
-      transcriptList.querySelectorAll(".del-btn").forEach(btn => {
+      // Klik garis warna -> ganti pembicara (Biru -> Oranye -> Hijau -> Ungu)
+      transcriptContainer.querySelectorAll("[data-spk-id]").forEach(bar => {
+        bar.addEventListener("click", () => {
+          const id = Number(bar.getAttribute("data-spk-id"));
+          const item = segments.find(s => s.id === id);
+          if (item) {
+            item.spkIndex = ((item.spkIndex || 0) + 1) % 4;
+            renderTranscript(false);
+          }
+        });
+      });
+
+      // Edit teks langsung
+      transcriptContainer.querySelectorAll("[data-edit-id]").forEach(box => {
+        box.addEventListener("blur", () => {
+          const id = Number(box.getAttribute("data-edit-id"));
+          const item = segments.find(s => s.id === id);
+          if (item) item.text = box.innerText.trim();
+        });
+      });
+
+      // Hapus baris
+      transcriptContainer.querySelectorAll("[data-del-id]").forEach(btn => {
         btn.addEventListener("click", () => {
-          const id = Number(btn.getAttribute("data-del"));
+          const id = Number(btn.getAttribute("data-del-id"));
           segments = segments.filter(s => s.id !== id);
-          renderSegments(false);
+          renderTranscript(false);
         });
       });
 
-      transcriptList.querySelectorAll(".edit-box").forEach(el => {
-        el.addEventListener("blur", () => {
-          const id = Number(el.getAttribute("data-edit"));
-          const found = segments.find(s => s.id === id);
-          if (found) found.text = el.innerText.trim();
-        });
-      });
-
-      if (highlightLast) {
-        transcriptList.scrollTop = transcriptList.scrollHeight;
+      if (scrollBottom) {
+        const mainEl = transcriptContainer.parentElement;
+        mainEl.scrollTop = mainEl.scrollHeight;
       }
     }
 
-    function pushNewSegment(rawText, speaker, conf = 0.99) {
-      const formatted = smartFormat(rawText);
-      if (!formatted) return;
-      const last = segments[segments.length - 1];
-      const start = last ? Math.max(liveElapsedSec, last.endSec) : liveElapsedSec;
-      const dur = Math.max(3, Math.ceil(formatted.split(/\s+/).length / 2.5));
+    function addTranscriptLine(rawText, spkIndex = null) {
+      const cleaned = applyGlossaryFormatting(rawText);
+      if (!cleaned) return;
 
+      const spk = spkIndex !== null ? spkIndex : currentSpkIndex;
       segments.push({
         id: Date.now() + Math.random(),
-        timeSec: start,
-        endSec: start + dur,
-        speaker: speaker || speakerSelect.value || "Pembicara 1",
-        confidence: conf,
-        text: formatted,
-        en: autoTranslateToEn(formatted)
+        spkIndex: spk % 4,
+        timeSec: elapsedSec,
+        text: cleaned
       });
-
-      renderSegments(true);
+      renderTranscript(true);
     }
 
-    // --- LIVE TRANSKRIP (MIKROFON REAL-TIME + WEBAUDIO DSP + FALLBACK) ---
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    // =========================================================================
+    // 4. UPDATE STATUS MESIN AI (GEMINI / GROQ / WEB SPEECH)
+    // =========================================================================
+    function getActiveEngineType() {
+      const key = (apiKey || "").trim();
+      if (key.startsWith("AIza")) return "gemini";
+      if (key.startsWith("gsk_")) return "groq";
+      if (key.startsWith("sk-")) return "openai";
+      return "webspeech";
+    }
 
-    function startLiveMic() {
-      stopDemo();
-      isRecording = true;
-      liveStartTime = Date.now() - liveElapsedSec * 1000;
+    function updateEngineUI() {
+      const engine = getActiveEngineType();
+      gainLabel.textContent = `${micGainValue.toFixed(1)}x`;
+      const dbBoost = Math.round(20 * Math.log10(micGainValue));
+      gainSliderVal.textContent = `${micGainValue.toFixed(1)}x (+${dbBoost} dB)`;
+      gainSlider.value = String(micGainValue);
+      apiKeyInput.value = apiKey;
+      glossaryInput.value = glossaryTerms.join(", ");
 
-      btnStartLive.classList.add("recording-active");
-      btnStartLiveLabel.textContent = "⏹ HENTIKAN LIVE";
-      livePulseIndicator.className = "w-2.5 h-2.5 rounded-full bg-[var(--error)] animate-ping";
-      liveStateLabel.textContent = "Merekam Suara Live...";
-      vadStatusBadge.textContent = "Mendengarkan 🟢";
-      liveCaptionMonitor.innerHTML = `<span class="text-[var(--primary)]">🎙️ Silakan mulai berbicara sekarang...</span>`;
+      if (engine === "gemini") {
+        engineBadge.textContent = "✨ Mesin: Gemini 2.5 Flash (Audio Pre-Amp Aktif)";
+        engineBadge.className = "px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium border border-emerald-200 cursor-pointer";
+      } else if (engine === "groq") {
+        engineBadge.textContent = "⚡ Mesin: Whisper Large-v3 (Audio Pre-Amp Aktif)";
+        engineBadge.className = "px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 font-medium border border-purple-200 cursor-pointer";
+      } else if (engine === "openai") {
+        engineBadge.textContent = "⚡ Mesin: OpenAI Whisper (Audio Pre-Amp Aktif)";
+        engineBadge.className = "px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-700 font-medium border border-teal-200 cursor-pointer";
+      } else {
+        engineBadge.textContent = "Mode: Browser Speech (Klik ⚙️ untuk isi API Key Gemini/Whisper)";
+        engineBadge.className = "px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium border border-amber-200 cursor-pointer";
+      }
+    }
 
-      timerInterval = setInterval(() => {
-        liveElapsedSec = Math.floor((Date.now() - liveStartTime) / 1000);
-        liveTimer.textContent = formatTime(liveElapsedSec);
-      }, 500);
+    // =========================================================================
+    // 5. PIPELINE PENGUAT SUARA KECIL (PRE-AMP + COMPRESSOR) & DIARIZATION
+    // =========================================================================
+    function estimatePitchHz(float32Buf, sampleRate) {
+      // Estimasi frekuensi dasar (F0) sederhana untuk mendeteksi pergantian pembicara
+      let rms = 0;
+      for (let i = 0; i < float32Buf.length; i++) rms += float32Buf[i] * float32Buf[i];
+      rms = Math.sqrt(rms / float32Buf.length);
+      if (rms < 0.015) return 0;
 
-      startAudioDspVisualizer();
+      let zeroCrossings = 0;
+      for (let i = 1; i < float32Buf.length; i++) {
+        if ((float32Buf[i - 1] < 0 && float32Buf[i] >= 0) || (float32Buf[i - 1] >= 0 && float32Buf[i] < 0)) {
+          zeroCrossings++;
+        }
+      }
+      const estHz = (zeroCrossings * sampleRate) / (2 * float32Buf.length);
+      return (estHz >= 75 && estHz <= 450) ? estHz : 0;
+    }
 
-      if (SpeechRecognition) {
-        try {
+    function detectSpeakerChange(newPitchHz, pauseDurationMs) {
+      if (pauseDurationMs > 1600) {
+        if (newPitchHz > 0 && lastPitchAvg > 0 && Math.abs(newPitchHz - lastPitchAvg) > 35) {
+          currentSpkIndex = (currentSpkIndex + 1) % 3;
+        } else if (pauseDurationMs > 3200) {
+          // Jeda tanya-jawab rapat biasanya berganti pembicara
+          currentSpkIndex = (currentSpkIndex + 1) % 3;
+        }
+      }
+      if (newPitchHz > 0) {
+        lastPitchAvg = lastPitchAvg === 0 ? newPitchHz : (lastPitchAvg * 0.6 + newPitchHz * 0.4);
+      }
+      interimBar.className = `spk-bar spk-${currentSpkIndex % 4}`;
+    }
+
+    async function setupAmplifiedMicrophone() {
+      // Matikan autoGainControl bawaan browser jika kita memakai Pre-Amp + Compressor sendiri
+      // agar browser tidak meredam suara pelan sebagai noise
+      micStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: false,
+          autoGainControl: false,
+          channelCount: 1
+        }
+      });
+
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioCtx.createMediaStreamSource(micStream);
+
+      // 1. High-Pass Filter 85Hz (buang dengung AC/kipas/getaran meja)
+      const highpass = audioCtx.createBiquadFilter();
+      highpass.type = "highpass";
+      highpass.frequency.value = 85;
+
+      // 2. Vocal Presence Boost 2.6kHz (+4.5 dB untuk memperjelas artikulasi konsonan pembicara jauh)
+      const presence = audioCtx.createBiquadFilter();
+      presence.type = "peaking";
+      presence.frequency.value = 2600;
+      presence.Q.value = 1.0;
+      presence.gain.value = 4.5;
+
+      // 3. Pre-Amp Gain Node (mengangkat suara kecil hingga 3x - 6x lipat)
+      gainNode = audioCtx.createGain();
+      gainNode.gain.value = micGainValue;
+
+      // 4. Dynamics Compressor (menjaga agar ketika ada yang bicara keras dekat mic tidak pecah/clipping)
+      const compressor = audioCtx.createDynamicsCompressor();
+      compressor.threshold.value = -42;
+      compressor.knee.value = 25;
+      compressor.ratio.value = 6;
+      compressor.attack.value = 0.003;
+      compressor.release.value = 0.25;
+
+      // 5. Analyser & Output Stream (Audio yang SUDAH diperkuat dikirim ke MediaRecorder!)
+      analyserNode = audioCtx.createAnalyser();
+      analyserNode.fftSize = 1024;
+      processedDestination = audioCtx.createMediaStreamDestination();
+
+      source.connect(highpass);
+      highpass.connect(presence);
+      presence.connect(gainNode);
+      gainNode.connect(compressor);
+      compressor.connect(analyserNode);
+      compressor.connect(processedDestination);
+
+      return processedDestination.stream;
+    }
+
+    // =========================================================================
+    // 6. PENGIRIMAN POTONGAN AUDIO KE GEMINI / GROQ WHISPER SAAT LIVE
+    // =========================================================================
+    function blobToBase64(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = String(reader.result || "").split(",")[1] || "";
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    async function transcribeAudioBlobWithCloudAI(audioBlob, spkIdxForChunk) {
+      const engine = getActiveEngineType();
+      if (engine === "webspeech" || !audioBlob || audioBlob.size < 1500) return;
+
+      aiProcessingBadge.classList.remove("hidden");
+      try {
+        if (engine === "gemini") {
+          const b64 = await blobToBase64(audioBlob);
+          const mime = audioBlob.type ? audioBlob.type.split(";")[0] : "audio/webm";
+          const langHint = langSelect.value === "auto"
+            ? "Indonesia, Jawa, Inggris, atau Jepang"
+            : langSelect.value;
+
+          const prompt = [
+            `Transkripsikan rekaman rapat ini secara verbatim dan akurat dalam bahasa ${langHint}.`,
+            `Istilah khusus/glosarium yang mungkin muncul: ${glossaryTerms.join(", ")}.`,
+            `Aturan penting:`,
+            `- Jika audio hanya berisi hening, napas, atau derau tanpa ucapan manusia, balas HANYA dengan kata: KOSONG`,
+            `- Jika ada percakapan lebih dari satu pembicara di potongan ini, pisahkan tiap pergantian pembicara dengan baris baru.`,
+            `- Jangan tambahkan penjelasan apa pun selain teks hasil transkrip.`
+          ].join("\n");
+
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
+          const resp = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  { text: prompt },
+                  { inline_data: { mime_type: mime, data: b64 } }
+                ]
+              }],
+              generationConfig: { temperature: 0.1 }
+            })
+          });
+
+          if (resp.ok) {
+            const data = await resp.json();
+            const rawOut = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+            if (rawOut && rawOut.toUpperCase() !== "KOSONG") {
+              const lines = rawOut.split(/\n+/).map(l => l.replace(/^[-*•]\s*/, "").trim()).filter(Boolean);
+              lines.forEach((line, idx) => {
+                // Bersihkan label pembicara jika Gemini menyertakannya
+                const cleanLine = line.replace(/^(Pembicara\s*\d+|Speaker\s*\d+)\s*:\s*/i, "");
+                addTranscriptLine(cleanLine, (spkIdxForChunk + idx) % 4);
+              });
+              interimText.textContent = "Mendengarkan...";
+            }
+          }
+        } else if (engine === "groq" || engine === "openai") {
+          const fd = new FormData();
+          const ext = (audioBlob.type || "").includes("mp4") ? "m4a" : "webm";
+          fd.append("file", audioBlob, `chunk.${ext}`);
+          fd.append("model", engine === "groq" ? "whisper-large-v3-turbo" : "whisper-1");
+          if (langSelect.value !== "auto") {
+            fd.append("language", langSelect.value.slice(0, 2));
+          }
+          // Berikan konteks kalimat terakhir + glosarium agar akurat seperti Maestra
+          const prevContext = segments.slice(-2).map(s => s.text).join(" ");
+          fd.append("prompt", `Glosarium: ${glossaryTerms.join(", ")}. ${prevContext}`);
+
+          const endpoint = engine === "groq"
+            ? "https://api.groq.com/openai/v1/audio/transcriptions"
+            : "https://api.openai.com/v1/audio/transcriptions";
+
+          const resp = await fetch(endpoint, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${apiKey.trim()}` },
+            body: fd
+          });
+
+          if (resp.ok) {
+            const data = await resp.json();
+            const text = (data.text || "").trim();
+            // Abaikan halusinasi hening Whisper
+            const isHallucination = /^(terima kasih|thank you|subtitle|selamat menonton|sampai jumpa|\.+)$/i.test(text);
+            if (text && !isHallucination) {
+              addTranscriptLine(text, spkIdxForChunk);
+              interimText.textContent = "Mendengarkan...";
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Cloud AI error:", err);
+      } finally {
+        aiProcessingBadge.classList.add("hidden");
+      }
+    }
+
+    // =========================================================================
+    // 7. LOOP DETEKSI SUARA (VAD SENSITIF SUARA KECIL) & PEREKAMAN
+    // =========================================================================
+    function startChunkRecorder(stream) {
+      if ( getActiveEngineType() === "webspeech" ) return;
+      try {
+        recordedChunks = [];
+        mediaRecorder = new MediaRecorder(stream);
+        chunkStartMs = Date.now();
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+          const spkSnapshot = currentSpkIndex;
+          if (isSpeakingNow || blob.size > 4000) {
+            transcribeAudioBlobWithCloudAI(blob, spkSnapshot);
+          }
+          // Segera mulai rekaman potongan berikutnya jika masih live
+          if (isRecording && !isPaused && processedDestination) {
+            startChunkRecorder(processedDestination.stream);
+          }
+        };
+
+        mediaRecorder.start();
+      } catch (e) {
+        console.warn("MediaRecorder tidak didukung:", e);
+      }
+    }
+
+    async function startLiveSession() {
+      try {
+        const amplifiedStream = await setupAmplifiedMicrophone();
+        isRecording = true;
+        isPaused = false;
+        lastSpeechTimestamp = Date.now();
+
+        // Update UI ke status Merekam
+        btnRecordMain.classList.add("rec-pulse");
+        recordIconBox.className = "w-5 h-5 rounded-xs bg-white";
+        statusDot.className = "w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping";
+        statusText.textContent = "Merekam Live (Penguat Suara Aktif)";
+        liveInterimRow.classList.remove("hidden");
+        interimText.textContent = "Mendengarkan...";
+
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+          if (!isPaused) {
+            elapsedSec++;
+            timerBadge.textContent = formatTime(elapsedSec);
+          }
+        }, 1000);
+
+        // Jika ada API Key Cloud (Gemini/Groq), jalankan perekam potongan audio yang sudah diperkuat
+        if (getActiveEngineType() !== "webspeech") {
+          startChunkRecorder(amplifiedStream);
+        }
+
+        // Jalankan monitor level dB + VAD sensitif suara kecil (-46 dB setelah boost)
+        const timeBuf = new Float32Array(analyserNode.fftSize);
+        const monitorAudioLoop = () => {
+          if (!isRecording) return;
+          animFrameId = requestAnimationFrame(monitorAudioLoop);
+          if (isPaused) return;
+
+          analyserNode.getFloatTimeDomainData(timeBuf);
+          let sum = 0;
+          for (let i = 0; i < timeBuf.length; i++) sum += timeBuf[i] * timeBuf[i];
+          const rms = Math.sqrt(sum / timeBuf.length);
+          const db = Math.max(-60, Math.round(20 * Math.log10(rms + 1e-6)));
+          dbMeter.textContent = `${db} dB`;
+
+          // Ambang batas sensitif (-45 dB setelah pre-amp) agar suara kecil tetap terdeteksi
+          const now = Date.now();
+          if (db > -45) {
+            const pauseGap = now - lastSpeechTimestamp;
+            const pitch = estimatePitchHz(timeBuf, audioCtx.sampleRate);
+            if (!isSpeakingNow && pauseGap > 1400) {
+              detectSpeakerChange(pitch, pauseGap);
+            }
+            isSpeakingNow = true;
+            lastSpeechTimestamp = now;
+            silenceStartMs = 0;
+          } else if (isSpeakingNow) {
+            if (!silenceStartMs) silenceStartMs = now;
+            const silenceDur = now - silenceStartMs;
+            const chunkDur = now - chunkStartMs;
+
+            // Potong dan kirim ke AI saat ada jeda bicara 950ms (atau sudah bicara 9 detik nonstop)
+            if ((silenceDur > 950 && chunkDur > 1800) || chunkDur > 9000) {
+              isSpeakingNow = false;
+              silenceStartMs = 0;
+              if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+              }
+            }
+          }
+        };
+        monitorAudioLoop();
+
+        // Jalankan Web Speech API untuk menampilkan kata sementara (interim) secara instan,
+        // atau sebagai penghasil transkrip utama jika pengguna belum memasukkan API Key Cloud
+        if (SpeechRecognition) {
           recognition = new SpeechRecognition();
-          recognition.lang = langSelect.value || "id-ID";
+          recognition.lang = langSelect.value === "auto" ? "id-ID" : langSelect.value;
           recognition.continuous = true;
           recognition.interimResults = true;
-          recognition.maxAlternatives = 5;
+          recognition.maxAlternatives = 3;
 
           recognition.onresult = (event) => {
-            let interim = "";
+            if (isPaused) return;
+            let interimStr = "";
             for (let i = event.resultIndex; i < event.results.length; i++) {
               const res = event.results[i];
               if (res.isFinal) {
-                // Pilih kandidat terbaik dengan kamus Maestra
-                let chosen = res[0].transcript;
-                for (let k = 0; k < res.length; k++) {
-                  const cand = res[k].transcript || "";
-                  if (customVocab.some(v => cand.toLowerCase().includes(v.toLowerCase()))) {
-                    chosen = cand;
-                    break;
+                // Jika mode webspeech (tanpa API key cloud), langsung masukkan ke daftar transkrip
+                if (getActiveEngineType() === "webspeech") {
+                  let best = res[0].transcript;
+                  for (let k = 0; k < res.length; k++) {
+                    const cand = res[k].transcript || "";
+                    if (glossaryTerms.some(g => cand.toLowerCase().includes(g.toLowerCase()))) {
+                      best = cand;
+                      break;
+                    }
                   }
+                  addTranscriptLine(best, currentSpkIndex);
+                  interimText.textContent = "Mendengarkan...";
                 }
-                const polished = smartFormat(chosen);
-                liveCaptionMonitor.textContent = `✓ "${polished}"`;
-                pushNewSegment(polished, speakerSelect.value, 0.99);
               } else {
-                interim += res[0].transcript;
+                interimStr += res[0].transcript;
               }
             }
-            if (interim) {
-              liveCaptionMonitor.textContent = smartFormat(interim) + " ...";
-            }
-          };
-
-          recognition.onerror = (err) => {
-            if (err.error === "not-allowed" || err.error === "service-not-allowed") {
-              liveCaptionMonitor.innerHTML = `⚠️ Izin mikrofon diblokir oleh khung pratinjau browser. <strong>Otomatis menjalankan Simulasi Suara Live...</strong>`;
-              setTimeout(() => {
-                if (isRecording) {
-                  stopLiveMic();
-                  startDemo();
-                }
-              }, 900);
+            if (interimStr) {
+              interimText.textContent = interimStr;
             }
           };
 
           recognition.onend = () => {
-            if (isRecording) {
+            if (isRecording && !isPaused) {
               try { recognition.start(); } catch (_) {}
             }
           };
 
-          recognition.start();
-        } catch (_) {
-          stopLiveMic();
-          startDemo();
+          try { recognition.start(); } catch (_) {}
         }
-      } else {
-        stopLiveMic();
-        startDemo();
+      } catch (err) {
+        statusText.textContent = "Izin mikrofon ditolak / tidak tersedia di frame ini";
+        statusDot.className = "w-2.5 h-2.5 rounded-full bg-amber-500";
       }
     }
 
-    function stopLiveMic() {
+    function stopLiveSession() {
       isRecording = false;
-      btnStartLive.classList.remove("recording-active");
-      btnStartLiveLabel.textContent = "🎙️ MULAI LIVE TRANSKRIP";
-      livePulseIndicator.className = "w-2 h-2 rounded-full bg-[var(--muted-foreground)]";
-      liveStateLabel.textContent = "Monitor Live Transkrip";
-      vadStatusBadge.textContent = "Dijeda";
+      isPaused = false;
       clearInterval(timerInterval);
+      cancelAnimationFrame(animFrameId);
+
+      btnRecordMain.classList.remove("rec-pulse");
+      recordIconBox.className = "w-4 h-4 rounded-full bg-white";
+      statusDot.className = "w-2.5 h-2.5 rounded-full bg-slate-300";
+      statusText.textContent = "Rekaman Dihentikan";
+      liveInterimRow.classList.add("hidden");
+      dbMeter.textContent = "-∞ dB";
 
       if (recognition) {
         try { recognition.stop(); } catch (_) {}
@@ -563,331 +862,132 @@
       if (mediaRecorder && mediaRecorder.state !== "inactive") {
         try { mediaRecorder.stop(); } catch (_) {}
       }
-      stopAudioVisualizer();
-    }
-
-    btnStartLive.addEventListener("click", () => {
-      if (isRecording) stopLiveMic();
-      else startLiveMic();
-    });
-
-    // --- SIMULASI LIVE REAL-TIME (MENUNJUKKAN CARA KERJA KOREKSI AKURASI MAESTRA AI) ---
-    const liveDemoSentences = [
-      {
-        speaker: "Moderator",
-        raw: "eee selamat pagi rekan rekan semua hari ini kita evaluasi akurasi maestra e ay dan integrasi wisper v3 untuk target ki empat"
-      },
-      {
-        speaker: "Pembicara 1",
-        raw: "hmm pengujian modul dipgram dan suarateks menunjukkan peningkatan signifikan tetapi kita perlu mengoptimalkan yu ai yu eks pada halaman editor"
-      },
-      {
-        speaker: "Pembicara 2",
-        raw: "apakah fitur ekspor subtitle es er te dan terjemahan otomatis bahasa inggris sudah mencapai target ki pi ai minggu ini"
-      }
-    ];
-    let demoIdx = 0;
-
-    function stopDemo() {
-      if (demoInterval) {
-        clearInterval(demoInterval);
-        demoInterval = null;
-        clearInterval(timerInterval);
-        btnDemoLive.textContent = "⚡ Tes Live Sekarang (Simulasi)";
-        livePulseIndicator.className = "w-2 h-2 rounded-full bg-[var(--muted-foreground)]";
-        vadStatusBadge.textContent = "Siap Bicara";
-      }
-    }
-
-    function startDemo() {
-      if (isRecording) stopLiveMic();
-      btnDemoLive.textContent = "⏹ Hentikan Simulasi Live";
-      livePulseIndicator.className = "w-2.5 h-2.5 rounded-full bg-[var(--success)] animate-ping";
-      liveStateLabel.textContent = "🟢 LIVE BERJALAN (Real-Time Stream)";
-      vadStatusBadge.textContent = "VAD: Berbicara 🟢";
-      startSimulatedWave();
-
-      clearInterval(timerInterval);
-      timerInterval = setInterval(() => {
-        liveElapsedSec += 1;
-        liveTimer.textContent = formatTime(liveElapsedSec);
-      }, 1000);
-
-      const runSentence = () => {
-        const item = liveDemoSentences[demoIdx % liveDemoSentences.length];
-        demoIdx++;
-        speakerSelect.value = item.speaker;
-        dbLevelText.textContent = "-16 dB";
-
-        const words = item.raw.split(" ");
-        let partial = "";
-        let w = 0;
-
-        const wordTick = setInterval(() => {
-          if (w < words.length) {
-            partial += (w === 0 ? "" : " ") + words[w];
-            liveCaptionMonitor.innerHTML = `<span class="text-[var(--muted-foreground)]">[Mendengar Live]:</span> "${escapeHtml(partial)}..."`;
-            w++;
-          } else {
-            clearInterval(wordTick);
-            const finalClean = smartFormat(item.raw);
-            liveCaptionMonitor.innerHTML = `<span class="text-[var(--success)]">✓ [Dikoreksi Akurat]:</span> "${escapeHtml(finalClean)}"`;
-            pushNewSegment(item.raw, item.speaker, 0.99);
-          }
-        }, 115);
-      };
-
-      runSentence();
-      demoInterval = setInterval(runSentence, 3400);
-    }
-
-    btnDemoLive.addEventListener("click", () => {
-      if (demoInterval) stopDemo();
-      else startDemo();
-    });
-
-    // --- WEBAUDIO DSP & WAVEFORM ---
-    function drawIdleLine() {
-      liveCtx.clearRect(0, 0, liveWaveCanvas.width, liveWaveCanvas.height);
-      const style = getComputedStyle(document.documentElement);
-      liveCtx.strokeStyle = style.getPropertyValue("--border").trim() || "#8884";
-      liveCtx.lineWidth = 1.5;
-      liveCtx.beginPath();
-      liveCtx.moveTo(0, liveWaveCanvas.height / 2);
-      liveCtx.lineTo(liveWaveCanvas.width, liveWaveCanvas.height / 2);
-      liveCtx.stroke();
-    }
-
-    async function startAudioDspVisualizer() {
-      try {
-        micStream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-        });
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const src = audioCtx.createMediaStreamSource(micStream);
-
-        // High-pass 85Hz + Vocal Presence 2.8kHz
-        const hp = audioCtx.createBiquadFilter();
-        hp.type = "highpass";
-        hp.frequency.value = 85;
-
-        const boost = audioCtx.createBiquadFilter();
-        boost.type = "peaking";
-        boost.frequency.value = 2800;
-        boost.gain.value = 3.5;
-
-        analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 64;
-
-        src.connect(hp);
-        hp.connect(boost);
-        boost.connect(analyser);
-
-        const data = new Uint8Array(analyser.frequencyBinCount);
-        const timeData = new Float32Array(analyser.fftSize);
-
-        const loop = () => {
-          if (!isRecording) return;
-          animId = requestAnimationFrame(loop);
-          analyser.getByteFrequencyData(data);
-          analyser.getFloatTimeDomainData(timeData);
-
-          let sum = 0;
-          for (let i = 0; i < timeData.length; i++) sum += timeData[i] * timeData[i];
-          currentRmsDb = Math.max(-60, Math.round(20 * Math.log10(Math.sqrt(sum / timeData.length) + 1e-6)));
-          dbLevelText.textContent = `${currentRmsDb} dB`;
-          vadStatusBadge.textContent = currentRmsDb > -38 ? "VAD: Berbicara 🟢" : "VAD: Hening";
-
-          drawBars(data);
-        };
-        loop();
-      } catch (_) {
-        startSimulatedWave();
-      }
-    }
-
-    function startSimulatedWave() {
-      cancelAnimationFrame(animId);
-      const data = new Uint8Array(24);
-      const loopSim = () => {
-        if (!isRecording && !demoInterval) {
-          drawIdleLine();
-          return;
-        }
-        for (let i = 0; i < data.length; i++) data[i] = 45 + Math.floor(Math.random() * 175);
-        drawBars(data);
-        animId = setTimeout(() => requestAnimationFrame(loopSim), 85);
-      };
-      loopSim();
-    }
-
-    function stopAudioVisualizer() {
-      cancelAnimationFrame(animId);
       if (micStream) {
         micStream.getTracks().forEach(t => t.stop());
         micStream = null;
       }
-      drawIdleLine();
     }
 
-    function drawBars(data) {
-      const w = liveWaveCanvas.width;
-      const h = liveWaveCanvas.height;
-      liveCtx.clearRect(0, 0, w, h);
-      const style = getComputedStyle(document.documentElement);
-      liveCtx.fillStyle = style.getPropertyValue("--primary").trim() || "#3b82f6";
+    // =========================================================================
+    // 8. EVENT LISTENERS (TOMBOL KONTROL, UPLOAD FILE, MODAL, EKSPOR)
+    // =========================================================================
+    btnRecordMain.addEventListener("click", () => {
+      if (isRecording) stopLiveSession();
+      else startLiveSession();
+    });
 
-      const count = data.length;
-      const barW = Math.max(3, Math.floor((w - count * 3) / count));
-      let x = 2;
-      for (let i = 0; i < count; i++) {
-        const barH = Math.max(4, (data[i] / 255) * (h - 6));
-        liveCtx.beginPath();
-        liveCtx.roundRect(x, (h - barH) / 2, barW, barH, 2);
-        liveCtx.fill();
-        x += barW + 3;
-      }
-    }
+    btnPause.addEventListener("click", () => {
+      if (!isRecording) return;
+      isPaused = !isPaused;
+      statusText.textContent = isPaused ? "Dijeda" : "Merekam Live (Penguat Suara Aktif)";
+      statusDot.className = isPaused
+        ? "w-2.5 h-2.5 rounded-full bg-amber-400"
+        : "w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping";
+    });
 
-    drawIdleLine();
-
-    // --- UPLOAD FILE AUDIO / VIDEO ---
-    fileInput.addEventListener("change", (e) => {
+    // Upload File Rekaman Rapat (.m4a, .mp3, .wav, dll)
+    audioUploadInput.addEventListener("change", async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
-      currentUploadFile = file;
-      uploadedPlayerBox.classList.remove("hidden");
-      uploadFileName.textContent = file.name;
-      audioPlayer.src = URL.createObjectURL(file);
-      statusFooter.textContent = `File '${file.name}' siap ditranskrip`;
-    });
 
-    btnTranscribeUpload.addEventListener("click", async () => {
-      if (!currentUploadFile) return;
-      liveCaptionMonitor.textContent = `⏳ Mentranskrip file ${currentUploadFile.name}...`;
-
-      if (apiKey) {
-        try {
-          const fd = new FormData();
-          fd.append("file", currentUploadFile);
-          fd.append("model", apiKey.startsWith("gsk_") ? "whisper-large-v3" : "whisper-1");
-          fd.append("language", (langSelect.value || "id-ID").slice(0, 2));
-          fd.append("prompt", `Istilah penting: ${customVocab.join(", ")}`);
-
-          const url = apiKey.startsWith("gsk_")
-            ? "https://api.groq.com/openai/v1/audio/transcriptions"
-            : "https://api.openai.com/v1/audio/transcriptions";
-
-          const resp = await fetch(url, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${apiKey}` },
-            body: fd
-          });
-          if (resp.ok) {
-            const data = await resp.json();
-            pushNewSegment(data.text || "Transkrip selesai.", "File Audio", 0.99);
-            liveCaptionMonitor.textContent = `✓ File ${currentUploadFile.name} selesai ditranskrip dengan Whisper Large-v3!`;
-            return;
-          }
-        } catch (_) {}
+      if (getActiveEngineType() === "webspeech") {
+        settingsModal.classList.remove("hidden");
+        statusText.textContent = "Masukkan API Key Gemini / Groq untuk transkrip file rekaman";
+        return;
       }
 
-      setTimeout(() => {
-        pushNewSegment(
-          `Hasil analisis file ${currentUploadFile.name}: Evaluasi pengembangan aplikasi SuaraTeks Studio dengan akurasi setara Maestra AI dan Whisper Large-v3.`,
-          "Rekaman File",
-          0.99
-        );
-        liveCaptionMonitor.textContent = `✓ Transkrip ${currentUploadFile.name} ditambahkan ke daftar sebelah kanan!`;
-      }, 500);
+      liveInterimRow.classList.remove("hidden");
+      interimText.textContent = `Mentranskrip file "${file.name}"...`;
+      await transcribeAudioBlobWithCloudAI(file, currentSpkIndex);
+      if (!isRecording) liveInterimRow.classList.add("hidden");
+      audioUploadInput.value = "";
     });
 
-    // --- QUICK MANUAL INPUT & SETTINGS ---
-    function sendQuickInput() {
-      const val = quickInput.value.trim();
-      if (!val) return;
-      const formatted = smartFormat(val);
-      liveCaptionMonitor.textContent = `✓ "${formatted}"`;
-      pushNewSegment(val, speakerSelect.value, 0.99);
-      quickInput.value = "";
-    }
-    btnQuickSend.addEventListener("click", sendQuickInput);
-    quickInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") sendQuickInput();
+    // Pengaturan Modal
+    btnOpenSettings.addEventListener("click", () => settingsModal.classList.remove("hidden"));
+    engineBadge.addEventListener("click", () => settingsModal.classList.remove("hidden"));
+    btnCloseModal.addEventListener("click", () => settingsModal.classList.add("hidden"));
+
+    gainSlider.addEventListener("input", () => {
+      const val = parseFloat(gainSlider.value);
+      const dbBoost = Math.round(20 * Math.log10(val));
+      gainSliderVal.textContent = `${val.toFixed(1)}x (+${dbBoost} dB)`;
+      if (gainNode) gainNode.gain.value = val;
     });
 
-    btnToggleSettings.addEventListener("click", () => settingsDrawer.classList.toggle("hidden"));
-    btnCloseSettings.addEventListener("click", () => settingsDrawer.classList.add("hidden"));
-    btnSaveSettings.addEventListener("click", () => {
-      customVocab = customVocabInput.value.split(",").map(s => s.trim()).filter(Boolean);
+    btnSaveModal.addEventListener("click", () => {
       apiKey = apiKeyInput.value.trim();
-      settingsDrawer.classList.add("hidden");
-      statusFooter.textContent = `✓ ${customVocab.length} kata kamus & pengaturan disimpan`;
+      micGainValue = parseFloat(gainSlider.value);
+      glossaryTerms = glossaryInput.value.split(",").map(s => s.trim()).filter(Boolean);
+
+      localStorage.setItem("transkrip_api_key", apiKey);
+      localStorage.setItem("transkrip_mic_gain", String(micGainValue));
+      localStorage.setItem("transkrip_glossary", glossaryTerms.join(", "));
+
+      if (gainNode) gainNode.gain.value = micGainValue;
+      updateEngineUI();
+      settingsModal.classList.add("hidden");
+
+      // Jika sedang merekam dan baru saja menambahkan API key, aktifkan perekam chunk
+      if (isRecording && getActiveEngineType() !== "webspeech" && (!mediaRecorder || mediaRecorder.state === "inactive") && processedDestination) {
+        startChunkRecorder(processedDestination.stream);
+      }
     });
 
-    btnProofread.addEventListener("click", () => {
-      segments.forEach(s => {
-        s.text = smartFormat(s.text);
-        s.confidence = 0.99;
-      });
-      renderSegments(false);
-      statusFooter.textContent = "✓ Ejaan, tanda baca & kamus telah dirapikan!";
-    });
+    // Ekspor & Salin Modal
+    btnExportMenu.addEventListener("click", () => exportModal.classList.remove("hidden"));
+    btnCloseExport.addEventListener("click", () => exportModal.classList.add("hidden"));
 
-    btnTranslateToggle.addEventListener("click", () => {
-      showEnglish = !showEnglish;
-      btnTranslateToggle.className = showEnglish
-        ? "text-xs px-2 py-1 rounded bg-[var(--primary)] text-[var(--primary-foreground)] font-medium"
-        : "text-xs px-2 py-1 rounded bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)]";
-      renderSegments(false);
-    });
-
-    btnClear.addEventListener("click", () => {
+    btnClearAll.addEventListener("click", () => {
       segments = [];
-      liveElapsedSec = 0;
-      liveTimer.textContent = "00:00";
-      renderSegments(false);
+      elapsedSec = 0;
+      timerBadge.textContent = "00:00";
+      renderTranscript(false);
     });
 
-    // --- EXPORT BUTTONS ---
-    function saveFile(name, content) {
+    function downloadFile(filename, content) {
       const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = name;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+      exportModal.classList.add("hidden");
     }
 
-    document.getElementById("btnCopy").addEventListener("click", async () => {
-      const txt = segments.map(s => `[${formatTime(s.timeSec)}] ${s.speaker}: ${s.text}`).join("\n");
+    document.getElementById("btnCopyText").addEventListener("click", async () => {
+      const text = segments.map(s => s.text).join("\n");
       try {
-        await navigator.clipboard.writeText(txt);
-        statusFooter.textContent = "✓ Teks berhasil disalin ke clipboard!";
+        await navigator.clipboard.writeText(text);
+        statusText.textContent = "✓ Transkrip disalin ke clipboard!";
       } catch (_) {}
+      exportModal.classList.add("hidden");
     });
 
-    document.getElementById("btnDownloadTxt").addEventListener("click", () => {
-      const txt = segments.map(s => `[${formatTime(s.timeSec)}] ${s.speaker}: ${s.text}`).join("\n\n");
-      saveFile("transkrip-suarateks.txt", txt);
+    document.getElementById("btnExportMd").addEventListener("click", () => {
+      const md = `# Transkrip Requirement Gathering\n\n` +
+        segments.map(s => `- **${speakerNames[(s.spkIndex || 0) % 4]}** \`[${formatTime(s.timeSec)}]\`: ${s.text}`).join("\n");
+      downloadFile("notulensi-rapat.md", md);
     });
 
-    document.getElementById("btnDownloadSrt").addEventListener("click", () => {
-      const srt = segments.map((s, i) => `${i + 1}\n${formatSrtTime(s.timeSec)} --> ${formatSrtTime(s.endSec)}\n[${s.speaker}] ${showEnglish ? (s.en || s.text) : s.text}\n`).join("\n");
-      saveFile("subtitle-suarateks.srt", srt);
+    document.getElementById("btnExportTxt").addEventListener("click", () => {
+      const txt = segments.map(s => `[${formatTime(s.timeSec)}] ${speakerNames[(s.spkIndex || 0) % 4]}: ${s.text}`).join("\n");
+      downloadFile("transkrip-rapat.txt", txt);
     });
 
-    document.getElementById("btnDownloadMd").addEventListener("click", () => {
-      const md = `# Laporan Transkrip & Notulensi\n\n` + segments.map(s => `- **\`[${formatTime(s.timeSec)}]\` ${s.speaker}**: ${s.text}`).join("\n");
-      saveFile("notulensi-suarateks.md", md);
+    document.getElementById("btnExportSrt").addEventListener("click", () => {
+      const srt = segments.map((s, i) => {
+        const start = s.timeSec;
+        const next = segments[i + 1]?.timeSec || (start + 4);
+        return `${i + 1}\n${formatSrtTime(start)} --> ${formatSrtTime(Math.max(start + 2, next))}\n${s.text}\n`;
+      }).join("\n");
+      downloadFile("transkrip-rapat.srt", srt);
     });
 
-    renderSegments(false);
-    // Otomatis jalankan Live Transkrip saat pertama kali dibuka
-    setTimeout(() => {
-      startLiveMic();
-    }, 300);
+    // Inisialisasi tampilan awal
+    updateEngineUI();
+    renderTranscript(false);
   </script>
 </body>
 </html>
