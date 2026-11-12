@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Maestra Studio Pro — Real-Time WebSocket Transkrip (Deepgram • Soniox • Gladia)</title>
+  <title>Maestra Studio Pro — Ultra-Optimal Real-Time WebSocket Transkrip</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { box-sizing: border-box; }
@@ -22,14 +22,14 @@
     /* Garis pembicara ala Maestra */
     .spk-bar {
       width: 4px;
-      min-height: 24px;
+      min-height: 26px;
       border-radius: 9999px;
       flex-shrink: 0;
       cursor: pointer;
       transition: transform 0.15s ease, opacity 0.15s ease;
     }
     .spk-bar:hover {
-      transform: scaleX(1.7);
+      transform: scaleX(1.8);
       opacity: 0.85;
     }
     .spk-0 { background-color: #3b82f6; } /* Biru */
@@ -55,38 +55,39 @@
       to { opacity: 1; transform: translateY(0); }
     }
     .line-enter {
-      animation: fade-in 0.2s ease-out;
+      animation: fade-in 0.18s ease-out;
     }
   </style>
 </head>
 <body class="min-h-screen flex flex-col justify-between bg-white text-slate-800 antialiased">
 
-  <!-- TOP BAR: PILIHAN MESIN REAL-TIME WEBSOCKET & INDIKATOR PENGUAT SUARA PELAN -->
-  <header class="w-full max-w-4xl mx-auto px-4 sm:px-8 pt-3.5 pb-2.5 border-b border-slate-100 space-y-2">
+  <!-- TOP BAR: STATUS KONEKSI, VISUALIZER SPEKTRUM SUARA, & MESIN WEBSOCKET -->
+  <header class="w-full max-w-4xl mx-auto px-4 sm:px-8 pt-3 pb-2.5 border-b border-slate-100 space-y-2">
     <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
-      <!-- Status Koneksi WebSocket & Timer -->
+      <!-- Status Koneksi WebSocket, WakeLock & Timer -->
       <div class="flex items-center gap-2 flex-wrap">
         <span id="statusDot" class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-        <span id="statusText" class="font-semibold text-slate-800">Siap Streaming (4 Mesin Aktif)</span>
+        <span id="statusText" class="font-semibold text-slate-800">Siap Streaming (DSP Studio + 4 Mesin Aktif)</span>
         <span id="timerBadge" class="font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-medium tabular-nums">00:00</span>
-        <span id="wsLatencyBadge" class="hidden px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium border border-emerald-200 text-[11px]">
-          ⚡ Live WebSocket
+        <span id="wakeLockBadge" class="hidden px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 font-medium border border-teal-200 text-[10px]" title="Layar HP dijaga tetap menyala agar rekaman tidak mati di tengah rapat">
+          📱 Anti-Sleep Aktif
         </span>
       </div>
 
-      <!-- Indikator Pre-Amp + AGC + Meter Volume -->
-      <div class="flex items-center gap-2.5">
-        <div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-full px-2.5 py-1" title="Penguat Suara Kecil/Jauh (Pre-Amp + Smart Auto-Gain)">
-          <span class="text-[11px]">🔊 Boost:</span>
-          <strong id="gainLabel" class="text-blue-600 font-mono text-[11px]">4.0x + AGC</strong>
-          <div class="w-14 h-2 bg-slate-200 rounded-full overflow-hidden">
-            <div id="vuBar" class="h-full bg-emerald-500 transition-all duration-75" style="width: 0%"></div>
-          </div>
+      <!-- Indikator Pre-Amp + Spektrum Suara Real-Time + Tombol Aksi -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-full px-2.5 py-1" title="DSP 4-Tahap: Anti-Gema 550Hz + Vocal Boost 2.8kHz + Smart Envelope AGC">
+          <span class="text-[11px]">🔊 DSP:</span>
+          <strong id="gainLabel" class="text-blue-600 font-mono text-[11px]">4.5x + AGC</strong>
+          <canvas id="miniWaveCanvas" width="60" height="16" class="rounded bg-slate-900/5"></canvas>
           <span id="dbMeter" class="font-mono text-[10px] text-slate-500 w-11 text-right">-∞ dB</span>
         </div>
 
+        <button id="btnReqSummary" type="button" class="px-2.5 py-1 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-semibold transition cursor-pointer" title="Ekstrak otomatis Requirement Gathering / Notulensi dari transkrip">
+          ✨ Ringkas Requirement
+        </button>
         <button id="btnExportMenu" type="button" class="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition cursor-pointer">
-          ⬇ Ekspor / Salin
+          ⬇ Ekspor
         </button>
         <button id="btnClearAll" type="button" class="px-2 py-1 rounded-md hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition cursor-pointer" title="Bersihkan layar transkrip">
           Hapus
@@ -94,79 +95,114 @@
       </div>
     </div>
 
-    <!-- BARIS PILIHAN MESIN REAL-TIME STT (1-KLIK GANTI MESIN SEPERTI MAESTRA) -->
-    <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+    <!-- BARIS PILIHAN MESIN REAL-TIME STT & NAMA PEMBICARA -->
+    <div class="flex flex-wrap items-center justify-between gap-2 pt-0.5">
       <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="Pilih Mesin STT Real-time">
-        <span class="text-[11px] text-slate-400 font-medium mr-1">Mesin STT:</span>
-        <button type="button" data-engine="soniox" class="engine-pill px-2.5 py-1 rounded-full text-xs font-semibold border transition cursor-pointer">
-          🌐 Soniox Live WS (ID + Jawa + Diarization)
+        <span class="text-[11px] text-slate-400 font-medium mr-0.5">Mesin Live:</span>
+        <button type="button" data-engine="soniox" class="engine-pill px-2.5 py-1 rounded-full text-xs font-semibold border transition cursor-pointer" title="Terbaik untuk Bahasa Indonesia + Jawa + Inggris & Deteksi Pembicara">
+          🌐 Soniox v3 WS (ID+Jawa+Diarization)
         </button>
-        <button type="button" data-engine="deepgram" class="engine-pill px-2.5 py-1 rounded-full text-xs font-semibold border transition cursor-pointer">
-          ⚡ Deepgram Nova Live WS (Ultra-Cepat)
+        <button type="button" data-engine="deepgram" class="engine-pill px-2.5 py-1 rounded-full text-xs font-semibold border transition cursor-pointer" title="Tercepat (<180ms) dengan Keyword Boosting Glosarium & Diarization">
+          ⚡ Deepgram Nova WS (Keyword Boost)
         </button>
-        <button type="button" data-engine="gladia" class="engine-pill px-2.5 py-1 rounded-full text-xs font-semibold border transition cursor-pointer">
-          🎯 Gladia Whisper v2 WS (Audio Enhancer)
+        <button type="button" data-engine="gladia" class="engine-pill px-2.5 py-1 rounded-full text-xs font-semibold border transition cursor-pointer" title="Whisper Real-Time v2 dengan Pre-Processing Audio Enhancer">
+          🎯 Gladia Whisper WS (Audio Enhancer)
         </button>
       </div>
 
       <!-- Legend Nama Pembicara (Klik untuk ubah nama pembicara) -->
-      <div id="speakerLegend" class="flex items-center gap-1.5 text-[11px] flex-wrap">
-        <!-- Dirender via JS -->
-      </div>
+      <div id="speakerLegend" class="flex items-center gap-1.5 text-[11px] flex-wrap"></div>
     </div>
   </header>
 
-  <!-- AREA UTAMA TRANSKRIP (GAYA BERSIH MAESTRA) -->
-  <main id="mainScrollArea" class="flex-1 w-full max-w-4xl mx-auto px-4 sm:px-8 py-6 overflow-y-auto custom-scroll" style="max-height: calc(100vh - 185px);">
+  <!-- PEMUTAR REKAMAN AUDIO JERNIH (MUNCUL OTOMATIS SAAT ADA REKAMAN / KLIK PUTAR PER BARIS) -->
+  <div id="audioReplayBar" class="hidden w-full max-w-4xl mx-auto px-4 sm:px-8 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3 text-xs">
+    <div class="flex items-center gap-2">
+      <span class="font-semibold text-slate-700">🎧 Putar Ulang Suara Diperkuat:</span>
+      <span id="replaySegmentLabel" class="text-blue-600 font-medium">Rekaman Rapat Lengkap</span>
+    </div>
+    <div class="flex items-center gap-2 flex-1 max-w-md">
+      <audio id="boostedAudioPlayer" controls class="h-8 w-full"></audio>
+      <button id="btnDownloadAudio" type="button" class="px-2.5 py-1 rounded bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-medium shrink-0 cursor-pointer">
+        ⬇ Audio (.webm)
+      </button>
+    </div>
+  </div>
+
+  <!-- AREA UTAMA TRANSKRIP (GAYA BERSIH MAESTRA + INLINE LIVE LOCKING) -->
+  <main id="mainScrollArea" class="flex-1 w-full max-w-4xl mx-auto px-4 sm:px-8 py-5 overflow-y-auto custom-scroll" style="max-height: calc(100vh - 190px);">
     <div id="transcriptContainer" class="space-y-3 text-base sm:text-[19px] leading-relaxed text-slate-800">
       <!-- Baris transkrip dirender di sini -->
     </div>
 
-    <!-- Baris Live Interim (Teks yang sedang diucapkan kata demi kata secara real-time) -->
-    <div id="liveInterimRow" class="hidden mt-3.5 flex items-stretch gap-3.5 bg-blue-50/40 rounded-lg p-2 -mx-2 border border-blue-100/80">
+    <!-- Baris Live Inline (Kata yang sudah pasti berwarna hitam pekat, kata sementara berwarna biru/abu seperti Maestra asli) -->
+    <div id="liveInterimRow" class="hidden mt-3.5 flex items-stretch gap-3.5 bg-blue-50/40 rounded-xl p-2.5 -mx-2.5 border border-blue-100">
       <div id="interimBar" class="spk-bar spk-0"></div>
       <div class="flex-1 py-0.5">
-        <div class="flex items-center gap-2 mb-0.5">
+        <div class="flex items-center justify-between gap-2 mb-0.5">
           <span id="interimSpeakerTag" class="text-[11px] font-semibold text-blue-600">Mendengarkan Live...</span>
-          <span id="aiProcessingBadge" class="hidden text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 animate-pulse">
-            Memproses file audio...
+          <span id="bufferQueueBadge" class="hidden text-[10px] font-mono px-2 py-0.5 rounded bg-amber-100 text-amber-800">
+            Menyambung ulang (Audio diamankan di buffer)...
           </span>
         </div>
-        <div id="interimText" class="text-slate-600 italic text-base sm:text-[19px] leading-relaxed">
-          Silakan berbicara, teks akan muncul kata demi kata...
+        <div class="text-base sm:text-[19px] leading-relaxed">
+          <span id="liveLockedSpan" class="text-slate-900 font-normal"></span>
+          <span id="interimText" class="text-blue-600/80 italic">Silakan berbicara...</span>
         </div>
       </div>
     </div>
   </main>
 
-  <!-- MODAL PENGATURAN: API KEY, PENGUAT SUARA PELAN (AGC), & GLOSARIUM -->
+  <!-- MODAL RINGKASAN REQUIREMENT GATHERING / MOM OTOMATIS -->
+  <div id="reqModal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-2xl p-5 space-y-3.5 text-xs sm:text-sm max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div>
+          <h3 class="font-bold text-slate-800 text-base">✨ Ekstraksi Requirement Gathering &amp; Notulensi (MOM)</h3>
+          <p class="text-xs text-slate-500 mt-0.5">Dihasilkan otomatis dari percakapan rapat di layar Anda.</p>
+        </div>
+        <button id="btnCloseReqModal" type="button" class="text-slate-400 hover:text-slate-700 text-lg font-bold px-2 cursor-pointer">✕</button>
+      </div>
+      <div id="reqOutputBox" class="flex-1 overflow-y-auto bg-slate-50 rounded-xl p-4 border border-slate-200 font-sans text-xs sm:text-sm leading-relaxed whitespace-pre-wrap text-slate-800"></div>
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+        <button id="btnCopyReq" type="button" class="px-3.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs cursor-pointer">
+          📋 Salin Ringkasan
+        </button>
+        <button id="btnDownloadReqMd" type="button" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs cursor-pointer">
+          ⬇ Unduh Dokumen Requirement (.MD)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL PENGATURAN DSP & API KEY -->
   <div id="settingsModal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg p-5 space-y-4 text-xs sm:text-sm max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3">
         <div>
-          <h3 class="font-bold text-slate-800 text-base">⚙️ Pengaturan Real-Time WebSocket &amp; Audio</h3>
-          <p class="text-xs text-slate-500 mt-0.5">Keempat API Key Anda (Soniox, Deepgram, Gladia, Google AI) sudah terpasang dan siap pakai.</p>
+          <h3 class="font-bold text-slate-800 text-base">⚙️ Pengaturan DSP Studio &amp; Mesin WebSocket</h3>
+          <p class="text-xs text-slate-500 mt-0.5">Optimasi maksimal untuk ruangan rapat, suara pelan/jauh, dan istilah khusus.</p>
         </div>
         <button id="btnCloseModal" type="button" class="text-slate-400 hover:text-slate-700 text-lg font-bold px-2 cursor-pointer">✕</button>
       </div>
 
-      <!-- Penguat Suara Kecil (Pre-Amp + Smart AGC) -->
+      <!-- Penguat Suara Kecil (4-Stage Studio DSP + Noise-Gated Envelope AGC) -->
       <div class="space-y-2 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
         <div class="flex items-center justify-between">
-          <label for="gainSlider" class="font-semibold text-slate-700">1. Penguat Suara Kecil / Jauh (Pre-Amp Gain):</label>
-          <span id="gainSliderVal" class="font-mono font-bold text-blue-600">4.0x (+12 dB)</span>
+          <label for="gainSlider" class="font-semibold text-slate-700">1. Pre-Amp Penguat Suara Kecil / Jauh:</label>
+          <span id="gainSliderVal" class="font-mono font-bold text-blue-600">4.5x (+13 dB)</span>
         </div>
-        <input id="gainSlider" type="range" min="1" max="10" step="0.5" value="4" class="w-full accent-blue-600 cursor-pointer" />
+        <input id="gainSlider" type="range" min="1" max="10" step="0.5" value="4.5" class="w-full accent-blue-600 cursor-pointer" />
         <div class="flex justify-between text-[11px] text-slate-400">
           <span>1.0x (Dekat Mic)</span>
-          <span>4.0x (Rapat Meja)</span>
-          <span>10.0x (Suara Sangat Pelan/Jauh)</span>
+          <span>4.5x (Meja Rapat)</span>
+          <span>10.0x (Suara Sangat Jauh)</span>
         </div>
 
         <label class="flex items-center gap-2 pt-1.5 cursor-pointer">
           <input id="chkSmartAgc" type="checkbox" checked class="rounded text-blue-600 focus:ring-blue-500" />
           <span class="text-xs text-slate-700 font-medium">
-            Aktifkan <strong>Smart Auto-Gain (AGC)</strong> — otomatis mengangkat suara bisikan/jauh hingga 3x tambahan tanpa pecah
+            <strong>Smart Envelope AGC + Anti-Gema Ruangan (550Hz Cut)</strong> — mengangkat bisikan/suara pelan tanpa mengangkat desis AC saat hening
           </span>
         </label>
       </div>
@@ -174,31 +210,31 @@
       <!-- Glosarium Requirement Gathering -->
       <div class="space-y-1.5">
         <label for="glossaryInput" class="block font-semibold text-slate-700">
-          2. Glosarium / Istilah Khusus Rapat (Dikirim ke Soniox, Deepgram &amp; Gladia):
+          2. Glosarium / Keyword Boosting (Dikirim ke Soniox, Deepgram &amp; Gladia):
         </label>
-        <textarea id="glossaryInput" rows="2" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:outline-none focus:border-blue-500">TKBM, saldo awal, kuantum, biaya operasional, requirement gathering, COA, jurnal, neraca, ERP, PR, PO, invoice, PPN, PPh</textarea>
+        <textarea id="glossaryInput" rows="2" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:outline-none focus:border-blue-500">TKBM, saldo awal, kuantum, biaya operasional, requirement gathering, COA, jurnal, neraca, ERP, PR, PO, invoice, PPN, PPh, piutang, hutang, buku besar</textarea>
       </div>
 
-      <!-- Daftar API Key (Sudah Terisi Otomatis) -->
-      <div class="space-y-2.5 border-t border-slate-100 pt-3">
+      <!-- Daftar API Key -->
+      <div class="space-y-2 border-t border-slate-100 pt-3">
         <div class="flex items-center justify-between">
           <span class="font-semibold text-slate-700">3. Kredensial Mesin Cloud STT:</span>
           <button id="btnRestoreDefaultKeys" type="button" class="text-[11px] text-blue-600 hover:underline font-medium cursor-pointer">
-            ↺ Muat Ulang Key Bawaan
+            ↺ Kembalikan Key Bawaan
           </button>
         </div>
 
         <div class="grid grid-cols-1 gap-2">
           <div>
-            <label class="text-[11px] font-medium text-slate-500">Soniox API Key (Real-Time WebSocket + Multibahasa ID/Jawa + Diarization):</label>
+            <label class="text-[11px] font-medium text-slate-500">Soniox API Key (Real-Time v3 + ID/Jawa + Diarization):</label>
             <input id="keySoniox" type="password" class="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 font-mono text-xs" />
           </div>
           <div>
-            <label class="text-[11px] font-medium text-slate-500">Deepgram API Key (Nova-2/Nova-3 Live WebSocket + Diarization):</label>
+            <label class="text-[11px] font-medium text-slate-500">Deepgram API Key (Nova-2 Live + Keyword Boost + Diarization):</label>
             <input id="keyDeepgram" type="password" class="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 font-mono text-xs" />
           </div>
           <div>
-            <label class="text-[11px] font-medium text-slate-500">Gladia API Key (Whisper v2 Live WebSocket + Audio Enhancer):</label>
+            <label class="text-[11px] font-medium text-slate-500">Gladia API Key (Whisper v2 Live + Audio Enhancer):</label>
             <input id="keyGladia" type="password" class="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 font-mono text-xs" />
           </div>
           <div>
@@ -254,27 +290,24 @@
           M
         </div>
         <div>
-          <div class="font-bold text-slate-800 text-sm leading-tight">Maestra Studio</div>
-          <div class="text-[11px] text-slate-400 hidden sm:block">Klik garis warna untuk ganti pembicara • Klik teks untuk edit</div>
+          <div class="font-bold text-slate-800 text-sm leading-tight">Maestra Studio Pro</div>
+          <div class="text-[11px] text-slate-400 hidden sm:block">Klik ▶ pada baris untuk dengar ulang suara • Klik garis warna untuk ganti pembicara</div>
         </div>
       </div>
 
       <!-- Tengah: Pause, Record/Stop (Merah Besar), dan Upload File Rekaman -->
       <div class="flex items-center gap-3 sm:gap-4">
-        <!-- Tombol Pause -->
         <button id="btnPause" type="button" title="Jeda streaming" class="w-11 h-11 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 flex items-center justify-center transition cursor-pointer">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10 9v6m4-6v6" />
           </svg>
         </button>
 
-        <!-- Tombol Utama Record / Stop (Lingkaran Merah Besar ala Maestra) -->
         <button id="btnRecordMain" type="button" title="Mulai / Hentikan Live Transkrip WebSocket" class="w-16 h-16 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center shadow-md transition cursor-pointer">
           <div id="recordIconBox" class="w-5 h-5 rounded-full bg-white transition-all"></div>
         </button>
 
-        <!-- Tombol Upload File Rekaman Rapat (.m4a, .mp3, .wav) -->
-        <label for="audioUploadInput" title="Upload file rekaman rapat (.m4a, .mp3, .wav) dengan Diarization otomatis" class="w-11 h-11 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 flex items-center justify-center transition cursor-pointer">
+        <label for="audioUploadInput" title="Upload file rekaman rapat (.m4a, .mp3, .wav) — Otomatis diperkuat suaranya sebelum ditranskrip!" class="w-11 h-11 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 flex items-center justify-center transition cursor-pointer">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
           </svg>
@@ -284,7 +317,7 @@
 
       <!-- Kanan: Tombol Settings & Pilihan Bahasa -->
       <div class="flex items-center gap-2">
-        <button id="btnOpenSettings" type="button" title="Pengaturan Penguat Suara Kecil & API Key" class="w-10 h-10 rounded-full border border-slate-200 hover:bg-slate-100 text-slate-600 flex items-center justify-center transition cursor-pointer">
+        <button id="btnOpenSettings" type="button" title="Pengaturan DSP Studio & API Key" class="w-10 h-10 rounded-full border border-slate-200 hover:bg-slate-100 text-slate-600 flex items-center justify-center transition cursor-pointer">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -325,35 +358,35 @@
       google: localStorage.getItem("maestra_key_google") || unlockKey(_VAULT.google)
     };
 
-    // Mesin aktif default: "soniox" (paling akurat untuk campuran Indonesia + Jawa + Inggris + Diarization)
     let activeEngine = localStorage.getItem("maestra_active_engine") || "soniox";
-    let micGainValue = parseFloat(localStorage.getItem("maestra_mic_gain") || "4.0");
+    let micGainValue = parseFloat(localStorage.getItem("maestra_mic_gain") || "4.5");
     let useSmartAgc = localStorage.getItem("maestra_smart_agc") !== "false";
-    let glossaryTerms = (localStorage.getItem("maestra_glossary") || "TKBM, saldo awal, kuantum, biaya operasional, requirement gathering, COA, jurnal, neraca, ERP, PR, PO, invoice, PPN, PPh")
+    let glossaryTerms = (localStorage.getItem("maestra_glossary") || "TKBM, saldo awal, kuantum, biaya operasional, requirement gathering, COA, jurnal, neraca, ERP, PR, PO, invoice, PPN, PPh, piutang, hutang, buku besar")
       .split(",")
       .map(s => s.trim())
       .filter(Boolean);
 
-    // Contoh awal transkrip (sesuai screenshot Maestra)
     let segments = [
-      { id: 1, spkIndex: 0, timeSec: 2, text: "Kontaktu-" },
-      { id: 2, spkIndex: 0, timeSec: 5, text: "Kalau runcing, masih." },
-      { id: 3, spkIndex: 1, timeSec: 9, text: "Yang diinputkan di sebagai saldo, sebagai data awalnya yang mana, Bu?" },
-      { id: 4, spkIndex: 2, timeSec: 14, text: "Biasanya sih dari saldo awal, Pak." },
-      { id: 5, spkIndex: 0, timeSec: 18, text: "Mending saldo awal aja." },
-      { id: 6, spkIndex: 2, timeSec: 21, text: "Iya, saldo awal." },
-      { id: 7, spkIndex: 2, timeSec: 25, text: "Biaya TKBM sama biaya operasional." },
-      { id: 8, spkIndex: 2, timeSec: 30, text: "Nanti biaya TKBM itu, nanti kuantumnya itu dari biaya TKBM dibagi sama harga TKBM." }
+      { id: 1, spkIndex: 0, timeSec: 2, endSec: 4, text: "Kontaktu-" },
+      { id: 2, spkIndex: 0, timeSec: 5, endSec: 8, text: "Kalau runcing, masih." },
+      { id: 3, spkIndex: 1, timeSec: 9, endSec: 13, text: "Yang diinputkan di sebagai saldo, sebagai data awalnya yang mana, Bu?" },
+      { id: 4, spkIndex: 2, timeSec: 14, endSec: 17, text: "Biasanya sih dari saldo awal, Pak." },
+      { id: 5, spkIndex: 0, timeSec: 18, endSec: 20, text: "Mending saldo awal aja." },
+      { id: 6, spkIndex: 2, timeSec: 21, endSec: 24, text: "Iya, saldo awal." },
+      { id: 7, spkIndex: 2, timeSec: 25, endSec: 29, text: "Biaya TKBM sama biaya operasional." },
+      { id: 8, spkIndex: 2, timeSec: 30, endSec: 36, text: "Nanti biaya TKBM itu, nanti kuantumnya itu dari biaya TKBM dibagi sama harga TKBM." }
     ];
 
     let speakerNames = JSON.parse(localStorage.getItem("maestra_speaker_names") || '["Pembicara 1", "Pembicara 2", "Pembicara 3", "Pembicara 4"]');
 
-    // State Streaming & Audio
+    // State Streaming, Reconnect Buffer, WakeLock, & Audio Backup
     let isRecording = false;
     let isPaused = false;
     let elapsedSec = 0;
     let timerInterval = null;
     let keepAliveInterval = null;
+    let wakeLockSentinel = null;
+    let reconnectAttemptTimer = null;
 
     let audioCtx = null;
     let micStream = null;
@@ -361,11 +394,26 @@
     let scriptProcessor = null;
     let activeSocket = null;
     let currentSpkIndex = 0;
-    let speakerMap = {}; // memetakan label speaker dari Soniox/Deepgram/Gladia ke 0..3
+    let speakerMap = {};
 
-    // Buffer khusus Soniox token streaming (karena Soniox mengirim token final per kata/suku kata)
+    // Ring Buffer Antrean Audio (menyimpan hingga 12 detik suara saat sinyal Wi-Fi/4G kedip agar 0 kata hilang!)
+    let pcmRingQueue = [];
+    const MAX_RING_CHUNKS = 95; // ~12 detik @ 128ms per chunk
+
+    // Perekam Audio yang Sudah Diperkuat (untuk fitur klik ▶ Putar Ulang per baris kalimat)
+    let backupMediaRecorder = null;
+    let backupAudioChunks = [];
+    let backupAudioUrl = null;
+    let replayStopTimer = null;
+
+    // Envelope AGC state (agar penguatan suara pelan sangat halus dan tidak mengangkat desis AC saat hening)
+    let smoothRmsEnv = 0.01;
+    let ambientNoiseFloor = 0.003;
+
+    // Buffer token final Soniox
     let sonioxPendingText = "";
     let sonioxPendingSpk = 0;
+    let sonioxSegmentStartSec = 0;
     let sonioxFlushTimer = null;
 
     // =========================================================================
@@ -376,23 +424,37 @@
     const liveInterimRow = document.getElementById("liveInterimRow");
     const interimBar = document.getElementById("interimBar");
     const interimSpeakerTag = document.getElementById("interimSpeakerTag");
+    const liveLockedSpan = document.getElementById("liveLockedSpan");
     const interimText = document.getElementById("interimText");
-    const aiProcessingBadge = document.getElementById("aiProcessingBadge");
+    const bufferQueueBadge = document.getElementById("bufferQueueBadge");
 
     const statusDot = document.getElementById("statusDot");
     const statusText = document.getElementById("statusText");
     const timerBadge = document.getElementById("timerBadge");
-    const wsLatencyBadge = document.getElementById("wsLatencyBadge");
+    const wakeLockBadge = document.getElementById("wakeLockBadge");
     const gainLabel = document.getElementById("gainLabel");
-    const vuBar = document.getElementById("vuBar");
+    const miniWaveCanvas = document.getElementById("miniWaveCanvas");
+    const waveCtx = miniWaveCanvas.getContext("2d");
     const dbMeter = document.getElementById("dbMeter");
     const speakerLegend = document.getElementById("speakerLegend");
+
+    const audioReplayBar = document.getElementById("audioReplayBar");
+    const replaySegmentLabel = document.getElementById("replaySegmentLabel");
+    const boostedAudioPlayer = document.getElementById("boostedAudioPlayer");
+    const btnDownloadAudio = document.getElementById("btnDownloadAudio");
 
     const btnRecordMain = document.getElementById("btnRecordMain");
     const recordIconBox = document.getElementById("recordIconBox");
     const btnPause = document.getElementById("btnPause");
     const audioUploadInput = document.getElementById("audioUploadInput");
     const langSelect = document.getElementById("langSelect");
+
+    const reqModal = document.getElementById("reqModal");
+    const btnReqSummary = document.getElementById("btnReqSummary");
+    const btnCloseReqModal = document.getElementById("btnCloseReqModal");
+    const reqOutputBox = document.getElementById("reqOutputBox");
+    const btnCopyReq = document.getElementById("btnCopyReq");
+    const btnDownloadReqMd = document.getElementById("btnDownloadReqMd");
 
     const settingsModal = document.getElementById("settingsModal");
     const btnOpenSettings = document.getElementById("btnOpenSettings");
@@ -414,7 +476,33 @@
     const btnClearAll = document.getElementById("btnClearAll");
 
     // =========================================================================
-    // 3. UI RENDERING & GLOSARIUM
+    // 3. SCREEN WAKE LOCK (CEGAH HP MATI LAYAR SAAT RAPAT PANJANG)
+    // =========================================================================
+    async function acquireWakeLock() {
+      if ("wakeLock" in navigator) {
+        try {
+          wakeLockSentinel = await navigator.wakeLock.request("screen");
+          wakeLockBadge.classList.remove("hidden");
+        } catch (_) {}
+      }
+    }
+
+    function releaseWakeLock() {
+      if (wakeLockSentinel) {
+        try { wakeLockSentinel.release(); } catch (_) {}
+        wakeLockSentinel = null;
+      }
+      wakeLockBadge.classList.add("hidden");
+    }
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && isRecording) {
+        acquireWakeLock();
+      }
+    });
+
+    // =========================================================================
+    // 4. UI RENDERING, GLOSARIUM, & CLICK-TO-PLAY AUDIO PER BARIS
     // =========================================================================
     function escapeHtml(str) {
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -459,7 +547,9 @@
       text = text
         .replace(/\b(te ka be em|t k b m|tkbm)\b/gi, "TKBM")
         .replace(/\b(ce o a|c o a)\b/gi, "COA")
-        .replace(/\b(e er pe|e r p)\b/gi, "ERP");
+        .replace(/\b(e er pe|e r p)\b/gi, "ERP")
+        .replace(/\b(pe pe en|p p n)\b/gi, "PPN")
+        .replace(/\b(pe pe ha|p p h)\b/gi, "PPh");
 
       text = text.replace(/(^\s*[a-z]|[.!?]\s+[a-z])/g, m => m.toUpperCase());
       return text;
@@ -486,6 +576,29 @@
       });
     }
 
+    function playTranscriptSegmentAudio(seg) {
+      if (!backupAudioUrl && backupAudioChunks.length > 0) {
+        const blob = new Blob(backupAudioChunks, { type: "audio/webm" });
+        backupAudioUrl = URL.createObjectURL(blob);
+        boostedAudioPlayer.src = backupAudioUrl;
+      }
+      if (!boostedAudioPlayer.src) {
+        statusText.textContent = "Rekaman audio belum tersedia untuk baris contoh awal ini.";
+        return;
+      }
+      audioReplayBar.classList.remove("hidden");
+      const startSec = Math.max(0, (seg.timeSec || 0) - 0.5);
+      const endSec = (seg.endSec || seg.timeSec + 5) + 0.8;
+      replaySegmentLabel.textContent = `${speakerNames[(seg.spkIndex || 0) % 4]} [${formatTime(startSec)} - ${formatTime(endSec)}]`;
+      boostedAudioPlayer.currentTime = startSec;
+      boostedAudioPlayer.play().catch(() => {});
+
+      clearTimeout(replayStopTimer);
+      replayStopTimer = setTimeout(() => {
+        boostedAudioPlayer.pause();
+      }, Math.max(2000, (endSec - startSec) * 1000));
+    }
+
     function renderTranscript(scrollBottom = false) {
       transcriptContainer.innerHTML = "";
 
@@ -509,8 +622,10 @@
           <div class="flex-1">
             <div contenteditable="true" data-edit-id="${seg.id}" class="outline-none focus:bg-slate-50 rounded px-1 -mx-1 transition">${escapeHtml(seg.text)}</div>
           </div>
-          <span class="opacity-0 group-hover:opacity-100 text-[11px] font-mono text-slate-300 self-center select-none">${formatTime(seg.timeSec)}</span>
-          <button type="button" data-del-id="${seg.id}" title="Hapus baris" class="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500 text-xs px-1.5 transition cursor-pointer">✕</button>
+          <button type="button" data-play-id="${seg.id}" title="Putar ulang suara pada kalimat ini (${formatTime(seg.timeSec)})" class="opacity-0 group-hover:opacity-100 text-[11px] font-mono text-blue-600 hover:bg-blue-50 px-1.5 py-0.5 rounded transition cursor-pointer self-center shrink-0">
+            ▶ ${formatTime(seg.timeSec)}
+          </button>
+          <button type="button" data-del-id="${seg.id}" title="Hapus baris" class="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500 text-xs px-1 transition cursor-pointer self-center">✕</button>
         `;
         transcriptContainer.appendChild(row);
       });
@@ -534,6 +649,14 @@
         });
       });
 
+      transcriptContainer.querySelectorAll("[data-play-id]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = Number(btn.getAttribute("data-play-id"));
+          const item = segments.find(s => s.id === id);
+          if (item) playTranscriptSegmentAudio(item);
+        });
+      });
+
       transcriptContainer.querySelectorAll("[data-del-id]").forEach(btn => {
         btn.addEventListener("click", () => {
           const id = Number(btn.getAttribute("data-del-id"));
@@ -547,28 +670,30 @@
       }
     }
 
-    function commitTranscriptLine(rawText, spkIndex = 0, customTimeSec = null) {
+    function commitTranscriptLine(rawText, spkIndex = 0, startSec = null, endSec = null) {
       const cleaned = applyGlossaryFormatting(rawText);
       if (!cleaned) return;
 
       const spk = (spkIndex ?? currentSpkIndex) % 4;
-      const tSec = customTimeSec !== null ? customTimeSec : elapsedSec;
+      const sSec = startSec !== null ? startSec : Math.max(0, elapsedSec - 2);
+      const eSec = endSec !== null ? endSec : elapsedSec;
 
-      // Jika pembicara sama baru saja bicara < 2 detik lalu dan kalimat sebelumnya pendek (< 90 karakter) serta belum diakhiri tanda tanya, gabungkan dengan rapi atau buat baris baru ala Maestra
       segments.push({
         id: Date.now() + Math.random(),
         spkIndex: spk,
-        timeSec: tSec,
+        timeSec: sSec,
+        endSec: eSec,
         text: cleaned
       });
       renderTranscript(true);
     }
 
-    function showInterimPreview(text, spkIndex = null) {
+    function showInterimPreview(lockedPart, tentativePart, spkIndex = null) {
       const spk = (spkIndex !== null ? spkIndex : currentSpkIndex) % 4;
       interimBar.className = `spk-bar spk-${spk}`;
-      interimSpeakerTag.textContent = `${speakerNames[spk]} (Live)`;
-      interimText.textContent = text || "Mendengarkan...";
+      interimSpeakerTag.textContent = `${speakerNames[spk]} (Live Streaming)`;
+      liveLockedSpan.textContent = lockedPart ? applyGlossaryFormatting(lockedPart) + " " : "";
+      interimText.textContent = tentativePart || (lockedPart ? "" : "Mendengarkan...");
       mainScrollArea.scrollTop = mainScrollArea.scrollHeight;
     }
 
@@ -596,103 +721,169 @@
     }
 
     // =========================================================================
-    // 4. PIPELINE AUDIO PRE-AMP + SMART AUTO-GAIN (AGC) + RESAMPLER PCM 16kHz
+    // 5. STUDIO 4-STAGE DSP + ANTI-ALIASED 16kHz RESAMPLER + NOISE-GATED AGC
     // =========================================================================
-    function downsampleAndBoostTo16kPCM(float32Input, inputSampleRate) {
+    function drawMiniWaveform(float32Buf, gainApplied) {
+      const w = miniWaveCanvas.width;
+      const h = miniWaveCanvas.height;
+      waveCtx.clearRect(0, 0, w, h);
+      waveCtx.strokeStyle = gainApplied > 1.8 ? "#2563eb" : "#10b981";
+      waveCtx.lineWidth = 1.4;
+      waveCtx.beginPath();
+      const step = Math.max(1, Math.floor(float32Buf.length / w));
+      for (let x = 0; x < w; x++) {
+        const sample = Math.max(-1, Math.min(1, float32Buf[x * step] * gainApplied));
+        const y = (h / 2) + sample * (h / 2 - 1);
+        if (x === 0) waveCtx.moveTo(x, y);
+        else waveCtx.lineTo(x, y);
+      }
+      waveCtx.stroke();
+    }
+
+    function downsampleAntiAliased16kPCM(float32Input, inputSampleRate) {
       const targetRate = 16000;
       const ratio = inputSampleRate / targetRate;
       const outLength = Math.floor(float32Input.length / ratio);
       const pcm16 = new Int16Array(outLength);
 
-      // Hitung RMS untuk Smart Auto-Gain (mengangkat suara bisikan/pelan di ruangan rapat)
+      // Hitung RMS frame saat ini
       let sumSq = 0;
       for (let i = 0; i < float32Input.length; i++) {
         sumSq += float32Input[i] * float32Input[i];
       }
-      const rms = Math.sqrt(sumSq / (float32Input.length || 1));
+      const frameRms = Math.sqrt(sumSq / (float32Input.length || 1));
 
-      // Jika Smart AGC aktif dan ada suara manusia yang pelan (rms antara 0.0025 s/d 0.08),
-      // angkat otomatis agar mencapai target level jelas (~0.16 RMS)
-      let agcMultiplier = 1.0;
-      if (useSmartAgc && rms > 0.0025 && rms < 0.12) {
-        agcMultiplier = Math.min(3.2, 0.14 / (rms + 0.01));
+      // Perbarui estimasi lantai derau ruangan (ambient noise floor) secara adaptif
+      if (frameRms < ambientNoiseFloor * 1.4 || frameRms < 0.004) {
+        ambientNoiseFloor = ambientNoiseFloor * 0.96 + frameRms * 0.04;
+      }
+      smoothRmsEnv = smoothRmsEnv * 0.80 + frameRms * 0.20;
+
+      // Noise-Gated Envelope AGC:
+      // Hanya angkat sinyal jika energi suara di atas 1.6x derau AC ruangan (mencegah halusinasi saat hening!)
+      let agcBoost = 1.0;
+      if (useSmartAgc && smoothRmsEnv > Math.max(0.0022, ambientNoiseFloor * 1.6) && smoothRmsEnv < 0.14) {
+        agcBoost = Math.min(3.5, 0.15 / (smoothRmsEnv + 0.008));
       }
 
+      // Boxcar Averaging Anti-Aliasing Decimation (mencegah noise frekuensi tinggi terlipat ke pita vokal)
       for (let i = 0; i < outLength; i++) {
-        const srcIdx = Math.floor(i * ratio);
-        let sample = float32Input[srcIdx] * agcMultiplier;
-        // Soft-knee limiter (tanh) agar suara keras di dekat mic tidak pernah pecah/clipping
-        sample = Math.tanh(sample);
-        const s = Math.max(-1, Math.min(1, sample));
-        pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+        const startIdx = Math.floor(i * ratio);
+        const endIdx = Math.min(float32Input.length, Math.ceil((i + 1) * ratio));
+        let sum = 0;
+        let count = 0;
+        for (let j = startIdx; j < endIdx; j++) {
+          sum += float32Input[j];
+          count++;
+        }
+        const avgSample = count > 0 ? (sum / count) : float32Input[startIdx];
+        // Soft-knee limiter (tanh) agar konsonan tetap bulat dan tidak pernah pecah
+        const boosted = Math.tanh(avgSample * agcBoost);
+        pcm16[i] = boosted < 0 ? boosted * 0x8000 : boosted * 0x7FFF;
       }
 
-      return { pcmBuffer: pcm16.buffer, rms: rms * agcMultiplier };
+      drawMiniWaveform(float32Input, agcBoost);
+      return { pcmBuffer: pcm16.buffer, rms: smoothRmsEnv * agcBoost };
     }
 
     async function startAudioCapturePipeline(onPcm16Chunk) {
       micStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
-          noiseSuppression: false, // Matikan agar suara pelan/jauh tidak dianggap noise oleh OS
-          autoGainControl: false,  // Kita pakai Pre-Amp + Smart AGC sendiri yang jauh lebih peka
-          channelCount: 1
+          noiseSuppression: false,
+          autoGainControl: false,
+          channelCount: 1,
+          sampleRate: 16000
         }
       });
 
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const source = audioCtx.createMediaStreamSource(micStream);
 
-      // 1. High-Pass Filter 85Hz (hilangkan dengung AC & getaran meja)
+      // TAHAP 1: High-Pass Filter 95Hz (buang dengung AC, proyektor, & getaran meja rapat)
       const highpass = audioCtx.createBiquadFilter();
       highpass.type = "highpass";
-      highpass.frequency.value = 85;
+      highpass.frequency.value = 95;
 
-      // 2. Vocal Clarity & Presence Boost 2.7kHz (+5.5 dB untuk memperjelas konsonan bicara pelan/jauh)
+      // TAHAP 2: De-Mud Room Echo Cut 550Hz (-3.5 dB untuk mengurangi gema/gaung ruang rapat tertutup)
+      const deMud = audioCtx.createBiquadFilter();
+      deMud.type = "peaking";
+      deMud.frequency.value = 550;
+      deMud.Q.value = 1.2;
+      deMud.gain.value = -3.5;
+
+      // TAHAP 3: Vocal Presence & Articulation Boost 2800Hz (+6 dB agar konsonan pembicara jauh tajam)
       const presence = audioCtx.createBiquadFilter();
       presence.type = "peaking";
-      presence.frequency.value = 2700;
-      presence.Q.value = 0.9;
-      presence.gain.value = 5.5;
+      presence.frequency.value = 2800;
+      presence.Q.value = 0.85;
+      presence.gain.value = 6.0;
 
-      // 3. Pre-Amp Gain Node
+      // TAHAP 4: Anti-Aliasing Low-Pass Filter 7400Hz (buang desis frekuensi tinggi sebelum sampel 16kHz)
+      const lowpass = audioCtx.createBiquadFilter();
+      lowpass.type = "lowpass";
+      lowpass.frequency.value = 7400;
+
+      // TAHAP 5: Pre-Amp Gain + Studio Compressor
       gainNode = audioCtx.createGain();
       gainNode.gain.value = micGainValue;
 
-      // 4. Dynamics Compressor
       const compressor = audioCtx.createDynamicsCompressor();
-      compressor.threshold.value = -38;
-      compressor.knee.value = 24;
+      compressor.threshold.value = -36;
+      compressor.knee.value = 22;
       compressor.ratio.value = 5;
-      compressor.attack.value = 0.003;
-      compressor.release.value = 0.2;
+      compressor.attack.value = 0.002;
+      compressor.release.value = 0.18;
 
-      // 5. PCM Stream Processor (mengalirkan potongan PCM 16kHz tiap ~128ms tanpa jeda)
-      scriptProcessor = audioCtx.createScriptProcessor(4096, 1, 1);
+      // Rekam juga audio yang sudah diperkuat ke MediaRecorder lokal agar tiap baris bisa diputar ulang!
+      try {
+        const boostedDest = audioCtx.createMediaStreamDestination();
+        compressor.connect(boostedDest);
+        backupAudioChunks = [];
+        if (backupAudioUrl) {
+          URL.revokeObjectURL(backupAudioUrl);
+          backupAudioUrl = null;
+        }
+        backupMediaRecorder = new MediaRecorder(boostedDest.stream);
+        backupMediaRecorder.ondataavailable = (ev) => {
+          if (ev.data && ev.data.size > 0) backupAudioChunks.push(ev.data);
+        };
+        backupMediaRecorder.onstop = () => {
+          if (backupAudioChunks.length > 0) {
+            const blob = new Blob(backupAudioChunks, { type: backupMediaRecorder.mimeType || "audio/webm" });
+            backupAudioUrl = URL.createObjectURL(blob);
+            boostedAudioPlayer.src = backupAudioUrl;
+            audioReplayBar.classList.remove("hidden");
+            replaySegmentLabel.textContent = "Rekaman Rapat Lengkap (Klik ▶ pada baris untuk lompat ke kalimat)";
+          }
+        };
+        backupMediaRecorder.start(1000);
+      } catch (e) {
+        console.warn("Backup recorder warning:", e);
+      }
+
+      // PCM 16kHz Streamer (~128ms per paket)
+      const bufSize = audioCtx.sampleRate <= 24000 ? 2048 : 4096;
+      scriptProcessor = audioCtx.createScriptProcessor(bufSize, 1, 1);
       scriptProcessor.onaudioprocess = (event) => {
         if (!isRecording || isPaused) return;
         const inputData = event.inputBuffer.getChannelData(0);
-        const { pcmBuffer, rms } = downsampleAndBoostTo16kPCM(inputData, audioCtx.sampleRate);
+        const { pcmBuffer, rms } = downsampleAntiAliased16kPCM(inputData, audioCtx.sampleRate);
 
-        // Update indikator VU meter & dB
         const db = Math.max(-60, Math.round(20 * Math.log10(rms + 1e-6)));
         dbMeter.textContent = `${db} dB`;
-        const pct = Math.min(100, Math.max(4, Math.round(((db + 55) / 50) * 100)));
-        vuBar.style.width = `${pct}%`;
-        vuBar.className = db > -12
-          ? "h-full bg-amber-500 transition-all duration-75"
-          : "h-full bg-emerald-500 transition-all duration-75";
 
         onPcm16Chunk(pcmBuffer);
       };
 
-      // Hubungkan rantai DSP
       const silentGain = audioCtx.createGain();
       silentGain.gain.value = 0;
 
       source.connect(highpass);
-      highpass.connect(presence);
-      presence.connect(gainNode);
+      highpass.connect(deMud);
+      deMud.connect(presence);
+      presence.connect(lowpass);
+      lowpass.connect(gainNode);
       gainNode.connect(compressor);
       compressor.connect(scriptProcessor);
       scriptProcessor.connect(silentGain);
@@ -700,10 +891,27 @@
     }
 
     // =========================================================================
-    // 5. KONEKTOR REAL-TIME WEBSOCKET: SONIOX, DEEPGRAM, DAN GLADIA LIVE
+    // 6. KONEKTOR REAL-TIME WEBSOCKET + ZERO-LOSS RING BUFFER
     // =========================================================================
+    function sendOrBufferPcmChunk(pcm16Buffer) {
+      if (activeSocket && activeSocket.readyState === WebSocket.OPEN) {
+        // Jika ada antrean paket saat reconnect, kirim dulu semuanya agar tidak ada kata yang hilang
+        while (pcmRingQueue.length > 0) {
+          const queued = pcmRingQueue.shift();
+          activeSocket.send(queued);
+        }
+        bufferQueueBadge.classList.add("hidden");
+        activeSocket.send(pcm16Buffer);
+      } else if (isRecording && !isPaused) {
+        pcmRingQueue.push(pcm16Buffer);
+        if (pcmRingQueue.length > MAX_RING_CHUNKS) {
+          pcmRingQueue.shift();
+        }
+        bufferQueueBadge.classList.remove("hidden");
+      }
+    }
 
-    // --- A. SONIOX REAL-TIME WEBSOCKET (ID + JAWA + EN + SPEAKER DIARIZATION) ---
+    // --- A. SONIOX REAL-TIME v3 WEBSOCKET (INLINE WORD LOCKING + MULTILINGUAL + DIARIZATION) ---
     function connectSonioxWebSocket() {
       return new Promise((resolve, reject) => {
         const ws = new WebSocket("wss://stt-rt.soniox.com/transcribe-websocket");
@@ -711,12 +919,14 @@
 
         sonioxPendingText = "";
         sonioxPendingSpk = currentSpkIndex;
+        sonioxSegmentStartSec = elapsedSec;
 
         function flushSonioxPending() {
           if (sonioxPendingText.trim()) {
-            commitTranscriptLine(sonioxPendingText.trim(), sonioxPendingSpk);
+            commitTranscriptLine(sonioxPendingText.trim(), sonioxPendingSpk, sonioxSegmentStartSec, elapsedSec);
             sonioxPendingText = "";
-            interimText.textContent = "Mendengarkan...";
+            sonioxSegmentStartSec = elapsedSec;
+            showInterimPreview("", "Mendengarkan...", sonioxPendingSpk);
           }
         }
 
@@ -737,7 +947,7 @@
             language_hints: langHints,
             enable_speaker_diarization: true,
             enable_endpoint_detection: true,
-            context: `Rapat requirement gathering sistem perusahaan. Istilah penting: ${glossaryTerms.join(", ")}.`
+            context: `Rapat requirement gathering sistem akuntansi dan operasional ERP. Istilah domain: ${glossaryTerms.join(", ")}.`
           };
           ws.send(JSON.stringify(configMsg));
           resolve(ws);
@@ -748,7 +958,6 @@
             const data = JSON.parse(event.data);
             if (data.error_code || data.error_message) {
               console.warn("Soniox WS Error:", data);
-              statusText.textContent = `Soniox: ${data.error_message || "eralih ke Deepgram..."}`;
               return;
             }
 
@@ -766,28 +975,29 @@
               latestSpk = spk;
 
               if (tok.is_final) {
-                // Jika berganti pembicara di tengah buffer final, commit kalimat pembicara sebelumnya dulu
+                if (!sonioxPendingText.trim()) {
+                  sonioxSegmentStartSec = Math.max(0, elapsedSec - 1);
+                }
                 if (sonioxPendingText.trim() && spk !== sonioxPendingSpk) {
                   flushSonioxPending();
                 }
                 sonioxPendingSpk = spk;
                 sonioxPendingText += tText;
 
-                // Jika bertemu tanda baca akhir kalimat (. ? !) atau panjang > 140 karakter, langsung jadikan baris Maestra
-                if (/[.?!]\s*$/.test(sonioxPendingText) || sonioxPendingText.length > 140) {
+                if (/[.?!]\s*$/.test(sonioxPendingText) || sonioxPendingText.length > 130) {
                   flushSonioxPending();
                 } else {
                   clearTimeout(sonioxFlushTimer);
-                  sonioxFlushTimer = setTimeout(flushSonioxPending, 1100);
+                  sonioxFlushTimer = setTimeout(flushSonioxPending, 1050);
                 }
               } else {
                 nonFinalText += tText;
               }
             }
 
-            const combinedLive = (sonioxPendingText + nonFinalText).trim();
-            if (combinedLive) {
-              showInterimPreview(combinedLive, latestSpk);
+            if (sonioxPendingText.trim() || nonFinalText.trim()) {
+              // Tampilkan kata yang sudah dikunci (hitam pekat) + kata sementara (biru miring) persis Maestra!
+              showInterimPreview(sonioxPendingText.trim(), nonFinalText, latestSpk);
             }
           } catch (e) {
             console.warn("Soniox parse err:", e);
@@ -797,11 +1007,12 @@
         ws.onerror = (err) => reject(err);
         ws.onclose = () => {
           flushSonioxPending();
+          scheduleAutoReconnectIfNeeded();
         };
       });
     }
 
-    // --- B. DEEPGRAM NOVA LIVE WEBSOCKET (ULTRA-CEPAT + DIARIZATION) ---
+    // --- B. DEEPGRAM NOVA LIVE WEBSOCKET (DENGAN KEYWORD BOOSTING GLOSARIUM!) ---
     function connectDeepgramWebSocket() {
       return new Promise((resolve, reject) => {
         const langVal = langSelect.value;
@@ -814,12 +1025,20 @@
           punctuate: "true",
           diarize: "true",
           interim_results: "true",
-          endpointing: "380",
-          utterance_end_ms: "1050",
+          endpointing: "360",
+          utterance_end_ms: "1000",
           vad_events: "true",
           encoding: "linear16",
           sample_rate: "16000",
           channels: "1"
+        });
+
+        // Pasang Keyword Boosting ke Deepgram agar istilah seperti TKBM, COA, ERP, saldo awal dikenali tajam
+        glossaryTerms.slice(0, 25).forEach(term => {
+          const singleWord = term.trim().split(/\s+/)[0];
+          if (singleWord && singleWord.length >= 2) {
+            params.append("keywords", `${singleWord}:2.5`);
+          }
         });
 
         const ws = new WebSocket(`wss://api.deepgram.com/v1/listen?${params.toString()}`, ["token", keys.deepgram.trim()]);
@@ -850,7 +1069,6 @@
                 : currentSpkIndex;
 
               if (msg.is_final) {
-                // Jika dalam 1 potongan ada pergantian pembicara yang jelas menurut diarization Deepgram, pisahkan per pembicara
                 if (words.length > 1 && words.some(w => w.speaker !== undefined)) {
                   let curGroupSpk = mapSpeakerId(words[0].speaker);
                   let curGroupWords = [];
@@ -869,9 +1087,9 @@
                 } else {
                   commitTranscriptLine(transcript, firstSpk);
                 }
-                interimText.textContent = "Mendengarkan...";
+                showInterimPreview("", "Mendengarkan...", firstSpk);
               } else {
-                showInterimPreview(transcript, firstSpk);
+                showInterimPreview("", transcript, firstSpk);
               }
             }
           } catch (e) {
@@ -880,11 +1098,14 @@
         };
 
         ws.onerror = (err) => reject(err);
-        ws.onclose = () => clearInterval(keepAliveInterval);
+        ws.onclose = () => {
+          clearInterval(keepAliveInterval);
+          scheduleAutoReconnectIfNeeded();
+        };
       });
     }
 
-    // --- C. GLADIA WHISPER LIVE v2 WEBSOCKET (CUSTOM VOCABULARY + MULTILINGUAL) ---
+    // --- C. GLADIA WHISPER LIVE v2 WEBSOCKET ---
     async function connectGladiaWebSocket() {
       const langVal = langSelect.value;
       const languages = langVal === "auto"
@@ -946,9 +1167,9 @@
 
               if (msg.data.is_final) {
                 commitTranscriptLine(text, spk);
-                interimText.textContent = "Mendengarkan...";
+                showInterimPreview("", "Mendengarkan...", spk);
               } else {
-                showInterimPreview(text, spk);
+                showInterimPreview("", text, spk);
               }
             }
           } catch (e) {
@@ -956,11 +1177,30 @@
           }
         };
         ws.onerror = (err) => reject(err);
+        ws.onclose = () => scheduleAutoReconnectIfNeeded();
       });
     }
 
+    // Auto-Reconnect jika sinyal internet di ruang rapat putus sementara
+    function scheduleAutoReconnectIfNeeded() {
+      if (!isRecording || isPaused) return;
+      clearTimeout(reconnectAttemptTimer);
+      reconnectAttemptTimer = setTimeout(async () => {
+        if (!isRecording || isPaused) return;
+        if (!activeSocket || activeSocket.readyState === WebSocket.CLOSED) {
+          try {
+            statusText.textContent = "Menyambung ulang WebSocket otomatis (Suara diamankan di buffer)...";
+            activeSocket = await connectSelectedEngineWebSocket();
+            statusText.textContent = `Live Streaming Aktif (${activeEngine.toUpperCase()} WebSocket)`;
+          } catch (_) {
+            scheduleAutoReconnectIfNeeded();
+          }
+        }
+      }, 900);
+    }
+
     // =========================================================================
-    // 6. KONTROL UTAMA LIVE SESSION (START / STOP / AUTO-FAILOVER)
+    // 7. KONTROL UTAMA LIVE SESSION
     // =========================================================================
     async function connectSelectedEngineWebSocket() {
       const order = [activeEngine, "soniox", "deepgram", "gladia"].filter((v, i, a) => a.indexOf(v) === i);
@@ -987,7 +1227,7 @@
             return ws;
           }
         } catch (err) {
-          console.warn(`Gagal menghubungkan ${eng}, mencoba mesin berikutnya...`, err);
+          console.warn(`Gagal menghubungkan ${eng}, mencoba mesin cadangan...`, err);
         }
       }
       throw new Error("Tidak dapat terhubung ke server WebSocket STT.");
@@ -996,29 +1236,24 @@
     async function startLiveSession() {
       try {
         statusDot.className = "w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping";
-        statusText.textContent = "Menyiapkan Mikrofon Penguat Suara & WebSocket...";
+        statusText.textContent = "Mengaktifkan DSP Penguat Suara & Pipa WebSocket...";
+        pcmRingQueue = [];
 
-        // 1. Buka pipa WebSocket ke mesin Real-Time STT (Soniox / Deepgram / Gladia)
+        await acquireWakeLock();
         activeSocket = await connectSelectedEngineWebSocket();
-
-        // 2. Jalankan Pre-Amp + Smart AGC + 16kHz PCM Streamer
         await startAudioCapturePipeline((pcm16Buffer) => {
-          if (activeSocket && activeSocket.readyState === WebSocket.OPEN) {
-            activeSocket.send(pcm16Buffer);
-          }
+          sendOrBufferPcmChunk(pcm16Buffer);
         });
 
         isRecording = true;
         isPaused = false;
 
-        // Update UI ke mode Merekam Live
         btnRecordMain.classList.add("rec-pulse");
         recordIconBox.className = "w-5 h-5 rounded-xs bg-white transition-all";
         statusDot.className = "w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping";
         statusText.textContent = `Live Streaming Aktif (${activeEngine.toUpperCase()} WebSocket)`;
-        wsLatencyBadge.classList.remove("hidden");
         liveInterimRow.classList.remove("hidden");
-        interimText.textContent = "Silakan berbicara, teks muncul real-time tanpa putus...";
+        showInterimPreview("", "Silakan berbicara, teks muncul kata demi kata...", currentSpkIndex);
 
         clearInterval(timerInterval);
         timerInterval = setInterval(() => {
@@ -1041,33 +1276,37 @@
       clearInterval(timerInterval);
       clearInterval(keepAliveInterval);
       clearTimeout(sonioxFlushTimer);
+      clearTimeout(reconnectAttemptTimer);
+      releaseWakeLock();
 
       if (sonioxPendingText.trim()) {
-        commitTranscriptLine(sonioxPendingText.trim(), sonioxPendingSpk);
+        commitTranscriptLine(sonioxPendingText.trim(), sonioxPendingSpk, sonioxSegmentStartSec, elapsedSec);
         sonioxPendingText = "";
       }
 
       btnRecordMain.classList.remove("rec-pulse");
       recordIconBox.className = "w-5 h-5 rounded-full bg-white transition-all";
-      wsLatencyBadge.classList.add("hidden");
       liveInterimRow.classList.add("hidden");
-      vuBar.style.width = "0%";
+      bufferQueueBadge.classList.add("hidden");
       dbMeter.textContent = "-∞ dB";
 
       if (resetStatus) {
         statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
-        statusText.textContent = "Streaming Selesai • Siap Merekam";
+        statusText.textContent = "Streaming Selesai • Klik ▶ pada baris untuk dengar ulang suara";
       }
 
       if (activeSocket) {
         try {
           if (activeSocket.readyState === WebSocket.OPEN) {
-            // Kirim sinyal EOF (buffer kosong) untuk Soniox/Deepgram sebelum tutup
             activeSocket.send(new ArrayBuffer(0));
           }
           activeSocket.close();
         } catch (_) {}
         activeSocket = null;
+      }
+
+      if (backupMediaRecorder && backupMediaRecorder.state !== "inactive") {
+        try { backupMediaRecorder.stop(); } catch (_) {}
       }
 
       if (scriptProcessor) {
@@ -1085,16 +1324,104 @@
     }
 
     // =========================================================================
-    // 7. TRANSKRIPSI FILE REKAMAN RAPAT (.M4A / .MP3 / .WAV) DENGAN DIARIZATION
+    // 8. PRE-AMP BOOSTER UNTUK UPLOAD FILE REKAMAN (.M4A/.MP3/.WAV) + DIARIZATION
     // =========================================================================
+    function encodeAudioBufferToWavBlob(audioBuffer) {
+      const numSamples = audioBuffer.length;
+      const sampleRate = audioBuffer.sampleRate;
+      const buffer = new ArrayBuffer(44 + numSamples * 2);
+      const view = new DataView(buffer);
+
+      function writeStr(offset, str) {
+        for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+      }
+
+      writeStr(0, "RIFF");
+      view.setUint32(4, 36 + numSamples * 2, true);
+      writeStr(8, "WAVE");
+      writeStr(12, "fmt ");
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      writeStr(36, "data");
+      view.setUint32(40, numSamples * 2, true);
+
+      const chan = audioBuffer.getChannelData(0);
+      let offset = 44;
+      for (let i = 0; i < numSamples; i++) {
+        const s = Math.max(-1, Math.min(1, Math.tanh(chan[i])));
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        offset += 2;
+      }
+      return new Blob([buffer], { type: "audio/wav" });
+    }
+
+    async function boostUploadedAudioFile(file) {
+      // Jika file <= 25 MB, kita proses dulu melewati OfflineAudioContext (High-Pass + 2.8kHz Presence Boost + Gain)
+      // supaya suara pembicara yang kecil/jauh di dalam rekaman ikut terangkat sebelum dikirim ke Deepgram!
+      try {
+        if (file.size > 28 * 1024 * 1024) return file;
+        const arrayBuf = await file.arrayBuffer();
+        const tempCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const decoded = await tempCtx.decodeAudioData(arrayBuf);
+        await tempCtx.close();
+
+        const targetRate = 16000;
+        const lengthSamples = Math.ceil(decoded.duration * targetRate);
+        const offlineCtx = new OfflineAudioContext(1, lengthSamples, targetRate);
+
+        const src = offlineCtx.createBufferSource();
+        src.buffer = decoded;
+
+        const hp = offlineCtx.createBiquadFilter();
+        hp.type = "highpass";
+        hp.frequency.value = 95;
+
+        const presence = offlineCtx.createBiquadFilter();
+        presence.type = "peaking";
+        presence.frequency.value = 2800;
+        presence.Q.value = 0.9;
+        presence.gain.value = 5.5;
+
+        const gain = offlineCtx.createGain();
+        gain.gain.value = Math.min(4.5, micGainValue);
+
+        const comp = offlineCtx.createDynamicsCompressor();
+        comp.threshold.value = -34;
+        comp.ratio.value = 5;
+
+        src.connect(hp);
+        hp.connect(presence);
+        presence.connect(gain);
+        gain.connect(comp);
+        comp.connect(offlineCtx.destination);
+        src.start(0);
+
+        const rendered = await offlineCtx.startRendering();
+        return encodeAudioBufferToWavBlob(rendered);
+      } catch (e) {
+        console.warn("Memakai file asli tanpa offline pre-amp:", e);
+        return file;
+      }
+    }
+
     async function transcribeUploadedFile(file) {
       liveInterimRow.classList.remove("hidden");
-      aiProcessingBadge.classList.remove("hidden");
       statusDot.className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping";
-      statusText.textContent = `Memproses rekaman "${file.name}" dengan Speaker Diarization...`;
-      interimText.textContent = `Mengunggah & memisahkan suara pembicara pada "${file.name}"...`;
+      statusText.textContent = `Memperkuat suara pelan & mentranskrip "${file.name}"...`;
+      showInterimPreview("", `Memproses DSP & memisahkan pembicara pada "${file.name}"...`, 0);
 
       try {
+        const enhancedBlob = await boostUploadedAudioFile(file);
+        backupAudioUrl = URL.createObjectURL(enhancedBlob);
+        boostedAudioPlayer.src = backupAudioUrl;
+        audioReplayBar.classList.remove("hidden");
+        replaySegmentLabel.textContent = `File Diperkuat: ${file.name}`;
+
         const langVal = langSelect.value;
         const dgLang = (langVal === "en" || langVal === "ja") ? langVal : "id";
         const params = new URLSearchParams({
@@ -1106,18 +1433,23 @@
           utterances: "true"
         });
 
+        glossaryTerms.slice(0, 25).forEach(term => {
+          const singleWord = term.trim().split(/\s+/)[0];
+          if (singleWord && singleWord.length >= 2) {
+            params.append("keywords", `${singleWord}:2.5`);
+          }
+        });
+
         const resp = await fetch(`https://api.deepgram.com/v1/listen?${params.toString()}`, {
           method: "POST",
           headers: {
             Authorization: `Token ${keys.deepgram.trim()}`,
-            "Content-Type": file.type || "audio/mp4"
+            "Content-Type": enhancedBlob.type || "audio/wav"
           },
-          body: file
+          body: enhancedBlob
         });
 
-        if (!resp.ok) {
-          throw new Error(`Deepgram File API HTTP ${resp.status}`);
-        }
+        if (!resp.ok) throw new Error(`Deepgram HTTP ${resp.status}`);
 
         const data = await resp.json();
         const utterances = data?.results?.utterances || [];
@@ -1125,13 +1457,13 @@
         if (utterances.length > 0) {
           utterances.forEach(u => {
             const spk = mapSpeakerId(u.speaker ?? 0);
-            commitTranscriptLine(u.transcript, spk, Math.round(u.start || elapsedSec));
+            commitTranscriptLine(u.transcript, spk, Math.round(u.start || 0), Math.round(u.end || (u.start + 4)));
           });
-          statusText.textContent = `✓ Selesai mentranskrip "${file.name}" (${utterances.length} kalimat)`;
+          statusText.textContent = `✓ Selesai mentranskrip "${file.name}" (${utterances.length} segmen pembicara)`;
         } else {
           const fallbackText = data?.results?.channels?.[0]?.alternatives?.[0]?.transcript || "";
           if (fallbackText) {
-            commitTranscriptLine(fallbackText, 0);
+            commitTranscriptLine(fallbackText, 0, 0, 10);
             statusText.textContent = `✓ Selesai mentranskrip "${file.name}"`;
           } else {
             statusText.textContent = `Tidak ditemukan suara percakapan di "${file.name}"`;
@@ -1142,13 +1474,63 @@
         statusText.textContent = `Gagal memproses file: ${err.message}`;
       } finally {
         statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
-        aiProcessingBadge.classList.add("hidden");
         if (!isRecording) liveInterimRow.classList.add("hidden");
       }
     }
 
     // =========================================================================
-    // 8. EVENT LISTENERS
+    // 9. GENERATOR DOKUMEN REQUIREMENT GATHERING / MOM OTOMATIS
+    // =========================================================================
+    function generateStructuredRequirementSummary() {
+      if (segments.length === 0) {
+        return "Belum ada transkrip percakapan untuk diringkas.";
+      }
+
+      const questions = [];
+      const formulasAndRules = [];
+      const dataInputs = [];
+      const speakerStats = {};
+
+      segments.forEach(s => {
+        const spkName = speakerNames[(s.spkIndex || 0) % 4];
+        speakerStats[spkName] = (speakerStats[spkName] || 0) + 1;
+        const t = s.text;
+
+        if (/\?|(\b(mana|apa|apakah|bagaimana|gimana|berapa|kapan|siapa)\b)/i.test(t)) {
+          questions.push(`- [${formatTime(s.timeSec)}] **${spkName}**: "${t}"`);
+        }
+        if (/(\b(dibagi|dikali|ditambah|dikurangi|rumus|kuantum|biaya|harga|total|perhitungan|hitung)\b)/i.test(t)) {
+          formulasAndRules.push(`- [${formatTime(s.timeSec)}] **${spkName}**: ${t}`);
+        }
+        if (/(\b(input|diinputkan|saldo|data awal|master|jurnal|coa|neraca|erp|dokumen|form|tabel|laporan)\b)/i.test(t)) {
+          dataInputs.push(`- [${formatTime(s.timeSec)}] **${spkName}**: ${t}`);
+        }
+      });
+
+      const lines = [
+        `# DOKUMEN NOTULENSI & REQUIREMENT GATHERING`,
+        `Tanggal Ekstraksi: ${new Date().toLocaleString("id-ID")}`,
+        `Total Kalimat Tercatat: ${segments.length} baris`,
+        `Partisipan Aktif: ${Object.entries(speakerStats).map(([k, v]) => `${k} (${v}x bicara)`).join(", ")}`,
+        ``,
+        `## 1. Kebutuhan Input Data & Saldo / Master Data`,
+        dataInputs.length > 0 ? dataInputs.join("\n") : "- (Belum ada poin spesifik terkait input data/saldo)",
+        ``,
+        `## 2. Aturan Bisnis & Rumus Perhitungan (Business Logic)`,
+        formulasAndRules.length > 0 ? formulasAndRules.join("\n") : "- (Belum ada poin spesifik terkait rumus/perhitungan biaya)",
+        ``,
+        `## 3. Pertanyaan Klarifikasi User / Klien`,
+        questions.length > 0 ? questions.join("\n") : "- (Tidak ada kalimat pertanyaan yang terdeteksi)",
+        ``,
+        `## 4. Transkrip Lengkap Verbatim`,
+        ...segments.map(s => `- **[${formatTime(s.timeSec)}] ${speakerNames[(s.spkIndex || 0) % 4]}**: ${s.text}`)
+      ];
+
+      return lines.join("\n");
+    }
+
+    // =========================================================================
+    // 10. EVENT LISTENERS
     // =========================================================================
     btnRecordMain.addEventListener("click", () => {
       if (isRecording) stopLiveSession(true);
@@ -1166,7 +1548,6 @@
         : "w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping";
     });
 
-    // Klik pill mesin STT (Soniox / Deepgram / Gladia) -> ganti mesin secara instan
     document.querySelectorAll(".engine-pill").forEach(btn => {
       btn.addEventListener("click", async () => {
         const chosen = btn.getAttribute("data-engine");
@@ -1175,7 +1556,6 @@
         localStorage.setItem("maestra_active_engine", activeEngine);
         updateSettingsAndPillsUI();
 
-        // Jika sedang merekam, langsung sambungkan ulang ke mesin baru tanpa kehilangan transkrip
         if (isRecording) {
           stopLiveSession(false);
           await startLiveSession();
@@ -1190,6 +1570,34 @@
       if (!file) return;
       await transcribeUploadedFile(file);
       audioUploadInput.value = "";
+    });
+
+    btnDownloadAudio.addEventListener("click", () => {
+      if (!boostedAudioPlayer.src) return;
+      const a = document.createElement("a");
+      a.href = boostedAudioPlayer.src;
+      a.download = `rekaman-rapat-boosted-${Date.now()}.webm`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    });
+
+    // Modal Ringkasan Requirement
+    btnReqSummary.addEventListener("click", () => {
+      reqOutputBox.textContent = generateStructuredRequirementSummary();
+      reqModal.classList.remove("hidden");
+    });
+    btnCloseReqModal.addEventListener("click", () => reqModal.classList.add("hidden"));
+    btnCopyReq.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(reqOutputBox.textContent);
+        btnCopyReq.textContent = "✓ Tersalin!";
+        setTimeout(() => { btnCopyReq.textContent = "📋 Salin Ringkasan"; }, 1500);
+      } catch (_) {}
+    });
+    btnDownloadReqMd.addEventListener("click", () => {
+      downloadFile("dokumen-requirement-rapat.md", reqOutputBox.textContent);
+      reqModal.classList.add("hidden");
     });
 
     // Modal Pengaturan
@@ -1267,8 +1675,7 @@
     });
 
     document.getElementById("btnExportMd").addEventListener("click", () => {
-      const md = `# Transkrip Requirement Gathering\n\n` +
-        segments.map(s => `- **${speakerNames[(s.spkIndex || 0) % 4]}** \`[${formatTime(s.timeSec)}]\`: ${s.text}`).join("\n");
+      const md = generateStructuredRequirementSummary();
       downloadFile("notulensi-rapat.md", md);
     });
 
@@ -1280,7 +1687,7 @@
     document.getElementById("btnExportSrt").addEventListener("click", () => {
       const srt = segments.map((s, i) => {
         const start = s.timeSec;
-        const next = segments[i + 1]?.timeSec || (start + 4);
+        const next = s.endSec || segments[i + 1]?.timeSec || (start + 4);
         return `${i + 1}\n${formatSrtTime(start)} --> ${formatSrtTime(Math.max(start + 2, next))}\n[${speakerNames[(s.spkIndex || 0) % 4]}] ${s.text}\n`;
       }).join("\n");
       downloadFile("transkrip-rapat.srt", srt);
