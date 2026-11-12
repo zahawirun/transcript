@@ -1,0 +1,47 @@
+name: Uji Gemini Transcribe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "samples/**"
+      - "tests/**"
+      - ".github/workflows/gemini-test.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gemini-test
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Pasang ffmpeg dan SDK
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          pip install -q -U google-genai
+
+      - name: Jalankan uji
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python tests/gemini_test.py
+
+      - name: Simpan hasil ke repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results/
+          git commit -m "Hasil uji Gemini Transcribe [skip ci]" || exit 0
+          git pull --rebase origin main
+          git push
